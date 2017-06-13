@@ -762,6 +762,10 @@
   + * (rep:Authorizable) = rep:User VERSION
   + * (rep:AuthorizableFolder) = rep:AuthorizableFolder VERSION
 
+[rep:MemberReferencesLookup] /* @since oak 1.8.0 */
+  mixin
+  - rep:memberReferencesLookup (STRING) protected
+
 /*
  * @deprecated since oak 1.0
  */

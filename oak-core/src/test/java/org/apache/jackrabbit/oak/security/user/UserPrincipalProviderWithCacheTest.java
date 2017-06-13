@@ -31,6 +31,7 @@ import javax.security.auth.login.LoginException;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.api.security.principal.PrincipalIterator;
 import org.apache.jackrabbit.api.security.principal.PrincipalManager;
@@ -43,10 +44,10 @@ import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.memory.PropertyStates;
+import org.apache.jackrabbit.oak.security.principal.AbstractPrincipalProviderTest;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationBase;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
 import org.apache.jackrabbit.oak.spi.security.authentication.SystemSubject;
-import org.apache.jackrabbit.oak.security.principal.AbstractPrincipalProviderTest;
 import org.apache.jackrabbit.oak.spi.security.principal.EveryonePrincipal;
 import org.apache.jackrabbit.oak.spi.security.principal.PrincipalImpl;
 import org.apache.jackrabbit.oak.spi.security.principal.PrincipalProvider;
@@ -291,11 +292,8 @@ public class UserPrincipalProviderWithCacheTest extends AbstractPrincipalProvide
             java.security.acl.Group principalGroup = (java.security.acl.Group) p;
             assertTrue(principalGroup.isMember(testPrincipal));
 
-            Enumeration<? extends Principal> members = principalGroup.members();
-            assertTrue(members.hasMoreElements());
-            assertEquals(testPrincipal, members.nextElement());
-            assertEquals(testGroup2.getPrincipal(), members.nextElement());
-            assertFalse(members.hasMoreElements());
+            Set<Principal> result = ImmutableSet.copyOf(Iterators.forEnumeration(principalGroup.members()));
+            assertEquals(ImmutableSet.of(testPrincipal, testGroup2.getPrincipal()), result);
         }
     }
 

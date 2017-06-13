@@ -107,7 +107,7 @@ class MembershipProvider extends AuthorizableBaseProvider {
 
     private static final Logger log = LoggerFactory.getLogger(MembershipProvider.class);
 
-    private final MembershipWriter writer = new MembershipWriter();
+    private final MembershipWriter writer = new MembershipWriterV2();
 
     /**
      * Creates a new membership provider
@@ -409,7 +409,7 @@ class MembershipProvider extends AuthorizableBaseProvider {
                     }
                     PropertyState property = trees.next().getProperty(REP_MEMBERS);
                     if (property != null) {
-                        propertyValues = property.getValue(Type.STRINGS).iterator();
+                        propertyValues = property.getValue(Type.WEAKREFERENCES).iterator();
                     }
                 } else if (!propertyValues.hasNext()) {
                     // if there are no more values left, reset the iterator

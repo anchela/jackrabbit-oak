@@ -17,6 +17,7 @@
 package org.apache.jackrabbit.oak.security.user;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -108,7 +109,7 @@ public abstract class MembershipBaseTest extends AbstractSecurityTest implements
         for (int i = 0; i <= cnt; i++) {
             User u = createUser();
             Group gr = createGroup();
-            g.addMembers(u.getID(), gr.getID());
+            assertTrue(g.addMembers(u.getID(), gr.getID()).isEmpty());
             memberPaths.add(u.getPath());
             memberPaths.add(gr.getPath());
         }
@@ -145,7 +146,7 @@ public abstract class MembershipBaseTest extends AbstractSecurityTest implements
         return root.getTree(path);
     }
 
-    static void assertMembers(Group grp, Set<String> ms) throws RepositoryException {
+    static void assertMembers(Group grp, Collection<String> ms) throws RepositoryException {
         Set<String> members = new HashSet<String>(ms);
         Iterator<Authorizable> iter = grp.getMembers();
         while (iter.hasNext()) {
@@ -165,5 +166,4 @@ public abstract class MembershipBaseTest extends AbstractSecurityTest implements
             assertTrue(SIZE_TH == repMembers.count() || cnt == repMembers.count());
         }
     }
-
 }

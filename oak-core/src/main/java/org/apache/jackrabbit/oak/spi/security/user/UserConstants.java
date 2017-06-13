@@ -39,6 +39,8 @@ public interface UserConstants {
     String NT_REP_MEMBER_REFERENCES = "rep:MemberReferences";
 
     String MIX_REP_IMPERSONATABLE = "rep:Impersonatable";
+    /** @since Oak 1.8 */
+    String MIX_REP_MEMBER_REFERENCES_LOOKUP = "rep:MemberReferencesLookup";
 
     String REP_PRINCIPAL_NAME = "rep:principalName";
     String REP_AUTHORIZABLE_ID = "rep:authorizableId";
@@ -51,10 +53,13 @@ public interface UserConstants {
     String REP_PWD = "rep:pwd";
     String REP_PWD_HISTORY = "rep:pwdHistory";
 
+    /** @since Oak 1.8 */
+    String REP_MEMBER_REFERENCES_LOOKUP = "rep:memberReferencesLookup";
+
     Collection<String> GROUP_PROPERTY_NAMES = ImmutableSet.of(
             REP_PRINCIPAL_NAME,
             REP_AUTHORIZABLE_ID,
-            REP_MEMBERS
+            REP_MEMBERS, REP_MEMBER_REFERENCES_LOOKUP
     );
 
     Collection<String> USER_PROPERTY_NAMES = ImmutableSet.of(
