@@ -29,7 +29,8 @@ import org.apache.jackrabbit.oak.plugins.index.IndexUtils;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.plugins.name.NamespaceEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.TypeEditorProvider;
-import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
+import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.apache.jackrabbit.oak.spi.commit.CompositeEditorProvider;
 import org.apache.jackrabbit.oak.spi.commit.EditorHook;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
@@ -38,7 +39,6 @@ import org.apache.jackrabbit.oak.spi.state.ApplyDiff;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
-import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,9 +63,11 @@ class ExternalIdentityRepositoryInitializer implements RepositoryInitializer {
     private static final Logger log = LoggerFactory.getLogger(ExternalIdentityRepositoryInitializer.class);
 
     private final boolean enforceUniqueIds;
+    private final RootProvider rootProvider;
 
-    ExternalIdentityRepositoryInitializer(boolean enforceUniqueIds) {
+    ExternalIdentityRepositoryInitializer(boolean enforceUniqueIds, @Nonnull RootProvider rootProvider) {
         this.enforceUniqueIds = enforceUniqueIds;
+        this.rootProvider = rootProvider;
     }
 
     @Override
@@ -76,9 +78,8 @@ class ExternalIdentityRepositoryInitializer implements RepositoryInitializer {
         String errorMsg = "Failed to initialize external identity content.";
         try {
 
-            Root root = RootFactory.createSystemRoot(store,
-                    new EditorHook(new CompositeEditorProvider(new NamespaceEditorProvider(), new TypeEditorProvider())),
-                    null, null, null);
+            Root root = rootProvider.createSystemRoot(store,
+                    new EditorHook(new CompositeEditorProvider(new NamespaceEditorProvider(), new TypeEditorProvider())));
 
             // create index definition for "rep:externalId" and "rep:externalPrincipalNames"
             Tree rootTree = root.getTree(PathUtils.ROOT_PATH);

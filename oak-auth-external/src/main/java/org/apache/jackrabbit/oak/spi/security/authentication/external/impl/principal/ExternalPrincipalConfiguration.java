@@ -16,8 +16,6 @@
  */
 package org.apache.jackrabbit.oak.spi.security.authentication.external.impl.principal;
 
-import static org.apache.jackrabbit.oak.spi.security.RegistrationConstants.OAK_SECURITY_NAME;
-
 import java.security.Principal;
 import java.security.acl.Group;
 import java.util.Arrays;
@@ -39,11 +37,13 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
+import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.jackrabbit.api.security.principal.PrincipalManager;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.commons.PropertiesUtil;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
@@ -67,6 +67,8 @@ import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.jackrabbit.oak.spi.security.RegistrationConstants.OAK_SECURITY_NAME;
 
 /**
  * Implementation of the {@code PrincipalConfiguration} interface that provides
@@ -99,6 +101,9 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
 
     private SyncConfigTracker syncConfigTracker;
     private SyncHandlerMappingTracker syncHandlerMappingTracker;
+
+    @Reference
+    private RootProvider rootProvider;
 
     @SuppressWarnings("UnusedDeclaration")
     public ExternalPrincipalConfiguration() {
@@ -137,7 +142,7 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
     @Nonnull
     @Override
     public RepositoryInitializer getRepositoryInitializer() {
-        return new ExternalIdentityRepositoryInitializer(protectedExternalIds());
+        return new ExternalIdentityRepositoryInitializer(protectedExternalIds(), rootProvider);
     }
 
     @Nonnull
@@ -175,6 +180,14 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
         if (syncHandlerMappingTracker != null) {
             syncHandlerMappingTracker.close();
         }
+    }
+
+    public void bindRootProvider(RootProvider rootProvider) {
+        this.rootProvider = rootProvider;
+    }
+
+    public void unbindRootProvider(RootProvider rootProvider) {
+        this.rootProvider = null;
     }
 
     //------------------------------------------------------------< private >---

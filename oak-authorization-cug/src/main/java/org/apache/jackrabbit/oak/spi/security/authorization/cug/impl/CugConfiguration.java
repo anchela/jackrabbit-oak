@@ -16,8 +16,6 @@
  */
 package org.apache.jackrabbit.oak.spi.security.authorization.cug.impl;
 
-import static org.apache.jackrabbit.oak.spi.security.RegistrationConstants.OAK_SECURITY_NAME;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.Principal;
@@ -45,11 +43,11 @@ import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.plugins.name.NamespaceEditorProvider;
-import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.plugins.nodetype.ReadOnlyNodeTypeManager;
 import org.apache.jackrabbit.oak.plugins.nodetype.TypeEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.NodeTypeRegistry;
-import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
+import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
 import org.apache.jackrabbit.oak.spi.commit.CommitHook;
 import org.apache.jackrabbit.oak.spi.commit.CompositeEditorProvider;
 import org.apache.jackrabbit.oak.spi.commit.EditorHook;
@@ -58,6 +56,7 @@ import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
 import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
 import org.apache.jackrabbit.oak.spi.mount.Mounts;
+import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.security.CompositeConfiguration;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationBase;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
@@ -73,6 +72,8 @@ import org.apache.jackrabbit.oak.spi.state.ApplyDiff;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.spi.xml.ProtectedItemImporter;
+
+import static org.apache.jackrabbit.oak.spi.security.RegistrationConstants.OAK_SECURITY_NAME;
 
 @Component(metatype = true,
         label = "Apache Jackrabbit Oak CUG Configuration",
@@ -111,6 +112,12 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
     @Reference
     private MountInfoProvider mountInfoProvider = Mounts.defaultMountInfoProvider();
 
+    @Reference
+    private RootProvider rootProvider;
+
+    @Reference
+    private TreeProvider treeProvider;
+
     private Set<String> supportedPaths = ImmutableSet.of();
 
     @SuppressWarnings("UnusedDeclaration")
@@ -143,7 +150,7 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
         if (!enabled || supportedPaths.isEmpty() || getExclude().isExcluded(principals)) {
             return EmptyPermissionProvider.getInstance();
         } else {
-            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext());
+            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext(), rootProvider, treeProvider);
         }
     }
 
@@ -160,9 +167,8 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
             NodeState base = builder.getNodeState();
             NodeStore store = new MemoryNodeStore(base);
 
-            Root root = RootFactory.createSystemRoot(store,
-                    new EditorHook(new CompositeEditorProvider(new NamespaceEditorProvider(), new TypeEditorProvider())),
-                    null, null, null);
+            Root root = rootProvider.createSystemRoot(store,
+                    new EditorHook(new CompositeEditorProvider(new NamespaceEditorProvider(), new TypeEditorProvider())));
             if (registerCugNodeTypes(root)) {
                 NodeState target = store.getRoot();
                 target.compareAgainstBaseState(base, new ApplyDiff(builder));
@@ -215,6 +221,22 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
 
     public void unbindMountInfoProvider(MountInfoProvider mountInfoProvider) {
         this.mountInfoProvider = null;
+    }
+
+    public void bindRootProvider(RootProvider rootProvider) {
+        this.rootProvider = rootProvider;
+    }
+
+    public void unbindRootProvider(RootProvider rootProvider) {
+        this.rootProvider = null;
+    }
+
+    public void bindTreeProvider(TreeProvider treeProvider) {
+        this.treeProvider = treeProvider;
+    }
+
+    public void unbindTreeProvider(TreeProvider treeProvider) {
+        this.treeProvider = null;
     }
 
     //--------------------------------------------------------------------------

@@ -31,6 +31,7 @@ import javax.security.auth.Subject;
 import org.apache.jackrabbit.api.JackrabbitRepository;
 import org.apache.jackrabbit.api.JackrabbitSession;
 import org.apache.jackrabbit.oak.jcr.Jcr;
+import org.apache.jackrabbit.oak.plugins.tree.impl.RootProviderService;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
 import org.apache.jackrabbit.oak.spi.security.SecurityProvider;
@@ -78,7 +79,9 @@ public class ExternalIdentityImporterTest {
 
     @Before
     public void before() throws Exception {
-        securityProvider = new TestSecurityProvider(getConfigurationParameters(), new ExternalPrincipalConfiguration());
+        ExternalPrincipalConfiguration epc = new ExternalPrincipalConfiguration();
+        epc.bindRootProvider(new RootProviderService());
+        securityProvider = new TestSecurityProvider(getConfigurationParameters(), epc);
         QueryEngineSettings queryEngineSettings = new QueryEngineSettings();
         queryEngineSettings.setFailTraversal(true);
 
