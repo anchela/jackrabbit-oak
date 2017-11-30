@@ -25,12 +25,11 @@ import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
-import org.apache.jackrabbit.oak.plugins.tree.factories.TreeFactory;
-import org.apache.jackrabbit.oak.plugins.tree.impl.ImmutableTree;
 import org.apache.jackrabbit.oak.plugins.lock.LockConstants;
 import org.apache.jackrabbit.oak.plugins.nodetype.TypePredicate;
 import org.apache.jackrabbit.oak.plugins.tree.TreeConstants;
-import org.apache.jackrabbit.oak.spi.version.VersionConstants;
+import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
+import org.apache.jackrabbit.oak.plugins.tree.impl.ImmutableTree;
 import org.apache.jackrabbit.oak.spi.commit.DefaultValidator;
 import org.apache.jackrabbit.oak.spi.commit.Validator;
 import org.apache.jackrabbit.oak.spi.commit.VisibleValidator;
@@ -39,7 +38,7 @@ import org.apache.jackrabbit.oak.spi.security.authorization.permission.Permissio
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.TreePermission;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
-import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
+import org.apache.jackrabbit.oak.spi.version.VersionConstants;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.jackrabbit.JcrConstants.JCR_CREATED;
@@ -69,8 +68,8 @@ class PermissionValidator extends DefaultValidator {
                         @Nonnull NodeState rootAfter,
                         @Nonnull PermissionProvider permissionProvider,
                         @Nonnull PermissionValidatorProvider provider) {
-        this.parentBefore = TreeFactory.createReadOnlyTree(rootBefore);
-        this.parentAfter = TreeFactory.createReadOnlyTree(rootAfter);
+        this.parentBefore = provider.createReadOnlyTree(rootBefore);
+        this.parentAfter = provider.createReadOnlyTree(rootAfter);
         this.parentPermission = permissionProvider.getTreePermission(parentBefore, TreePermission.EMPTY);
 
         this.permissionProvider = permissionProvider;
@@ -122,7 +121,7 @@ class PermissionValidator extends DefaultValidator {
             } // else: no re-order but only internal update
         } else if (isImmutableProperty(name, parentAfter)) {
             // parent node has been removed and and re-added as
-            checkPermissions(parentAfter, false, Permissions.ADD_NODE|Permissions.REMOVE_NODE);
+            checkPermissions(parentAfter, false, Permissions.ADD_NODE| Permissions.REMOVE_NODE);
         } else {
             checkPermissions(parentAfter, after, Permissions.MODIFY_PROPERTY);
         }

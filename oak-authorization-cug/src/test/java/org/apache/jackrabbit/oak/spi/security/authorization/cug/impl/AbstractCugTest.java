@@ -148,8 +148,7 @@ public class AbstractCugTest extends AbstractSecurityTest implements CugConstant
     }
 
     CugPermissionProvider createCugPermissionProvider(@Nonnull Set<String> supportedPaths, @Nonnull Principal... principals) {
-        CugSecurityProvider csp = (CugSecurityProvider) getSecurityProvider();
-        return new CugPermissionProvider(root, root.getContentSession().getWorkspaceName(), ImmutableSet.copyOf(principals), supportedPaths, getConfig(AuthorizationConfiguration.class).getContext(), csp.rootProvider, csp.treeProvider);
+        return new CugPermissionProvider(root, root.getContentSession().getWorkspaceName(), ImmutableSet.copyOf(principals), supportedPaths, getConfig(AuthorizationConfiguration.class).getContext(), rootProvider, treeProvider);
     }
 
     void setupCugsAndAcls() throws Exception {

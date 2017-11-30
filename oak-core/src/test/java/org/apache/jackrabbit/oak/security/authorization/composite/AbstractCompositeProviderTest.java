@@ -38,11 +38,11 @@ import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.commons.PathUtils;
 import org.apache.jackrabbit.oak.plugins.memory.PropertyStates;
-import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
-import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
+import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
 import org.apache.jackrabbit.oak.plugins.tree.impl.ImmutableTree;
 import org.apache.jackrabbit.oak.security.authorization.composite.CompositeAuthorizationConfiguration.CompositionType;
+import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.security.authorization.AuthorizationConfiguration;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.AggregatedPermissionProvider;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.PermissionProvider;
@@ -255,7 +255,7 @@ public abstract class AbstractCompositeProviderTest extends AbstractSecurityTest
         String workspaceName = root.getContentSession().getWorkspaceName();
         AuthorizationConfiguration config = getConfig(AuthorizationConfiguration.class);
         return new CompositePermissionProvider(root, getAggregatedProviders(workspaceName, config, principals),
-                config.getContext(), CompositionType.AND);
+                config.getContext(), CompositionType.AND, rootProvider);
     }
 
     CompositePermissionProvider createPermissionProviderOR(Principal... principals) {
@@ -266,7 +266,7 @@ public abstract class AbstractCompositeProviderTest extends AbstractSecurityTest
         String workspaceName = root.getContentSession().getWorkspaceName();
         AuthorizationConfiguration config = getConfig(AuthorizationConfiguration.class);
         return new CompositePermissionProvider(root, getAggregatedProviders(workspaceName, config, principals),
-                config.getContext(), CompositionType.OR);
+                config.getContext(), CompositionType.OR, rootProvider);
     }
 
     @Test
@@ -611,7 +611,7 @@ public abstract class AbstractCompositeProviderTest extends AbstractSecurityTest
     public void testRepositoryPermissionIsNotGranted() throws Exception {
         RepositoryPermission rp = createPermissionProvider().getRepositoryPermission();
         assertFalse(rp.isGranted(Permissions.PRIVILEGE_MANAGEMENT));
-        assertFalse(rp.isGranted(Permissions.NAMESPACE_MANAGEMENT|Permissions.PRIVILEGE_MANAGEMENT));
+        assertFalse(rp.isGranted(Permissions.NAMESPACE_MANAGEMENT| Permissions.PRIVILEGE_MANAGEMENT));
         assertFalse(rp.isGranted(Permissions.WORKSPACE_MANAGEMENT));
         assertFalse(rp.isGranted(Permissions.ALL));
         assertFalse(rp.isGranted(Permissions.NO_PERMISSION));
@@ -621,7 +621,7 @@ public abstract class AbstractCompositeProviderTest extends AbstractSecurityTest
     public void testRepositoryPermissionIsNotGrantedOR() throws Exception {
         RepositoryPermission rp = createPermissionProviderOR().getRepositoryPermission();
         assertFalse(rp.isGranted(Permissions.PRIVILEGE_MANAGEMENT));
-        assertFalse(rp.isGranted(Permissions.NAMESPACE_MANAGEMENT|Permissions.PRIVILEGE_MANAGEMENT));
+        assertFalse(rp.isGranted(Permissions.NAMESPACE_MANAGEMENT| Permissions.PRIVILEGE_MANAGEMENT));
         assertFalse(rp.isGranted(Permissions.WORKSPACE_MANAGEMENT));
         assertFalse(rp.isGranted(Permissions.ALL));
         assertFalse(rp.isGranted(Permissions.NO_PERMISSION));

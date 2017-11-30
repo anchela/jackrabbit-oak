@@ -46,8 +46,6 @@ import org.apache.jackrabbit.oak.plugins.name.NamespaceEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.ReadOnlyNodeTypeManager;
 import org.apache.jackrabbit.oak.plugins.nodetype.TypeEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.NodeTypeRegistry;
-import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
-import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
 import org.apache.jackrabbit.oak.spi.commit.CommitHook;
 import org.apache.jackrabbit.oak.spi.commit.CompositeEditorProvider;
 import org.apache.jackrabbit.oak.spi.commit.EditorHook;
@@ -112,12 +110,6 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
     @Reference
     private MountInfoProvider mountInfoProvider = Mounts.defaultMountInfoProvider();
 
-    @Reference
-    private RootProvider rootProvider;
-
-    @Reference
-    private TreeProvider treeProvider;
-
     private Set<String> supportedPaths = ImmutableSet.of();
 
     @SuppressWarnings("UnusedDeclaration")
@@ -150,7 +142,7 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
         if (!enabled || supportedPaths.isEmpty() || getExclude().isExcluded(principals)) {
             return EmptyPermissionProvider.getInstance();
         } else {
-            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext(), rootProvider, treeProvider);
+            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext(), getRootProvider(), getTreeProvider());
         }
     }
 
@@ -167,7 +159,7 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
             NodeState base = builder.getNodeState();
             NodeStore store = new MemoryNodeStore(base);
 
-            Root root = rootProvider.createSystemRoot(store,
+            Root root = getRootProvider().createSystemRoot(store,
                     new EditorHook(new CompositeEditorProvider(new NamespaceEditorProvider(), new TypeEditorProvider())));
             if (registerCugNodeTypes(root)) {
                 NodeState target = store.getRoot();
@@ -220,23 +212,9 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
     }
 
     public void unbindMountInfoProvider(MountInfoProvider mountInfoProvider) {
+        // set to null (and not default) to comply with OSGi lifecycle,
+        // if the reference is unset it means the service is being deactivated
         this.mountInfoProvider = null;
-    }
-
-    public void bindRootProvider(RootProvider rootProvider) {
-        this.rootProvider = rootProvider;
-    }
-
-    public void unbindRootProvider(RootProvider rootProvider) {
-        this.rootProvider = null;
-    }
-
-    public void bindTreeProvider(TreeProvider treeProvider) {
-        this.treeProvider = treeProvider;
-    }
-
-    public void unbindTreeProvider(TreeProvider treeProvider) {
-        this.treeProvider = null;
     }
 
     //--------------------------------------------------------------------------

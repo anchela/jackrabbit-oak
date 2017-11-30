@@ -16,12 +16,9 @@
  */
 package org.apache.jackrabbit.oak;
 
-import static com.google.common.collect.Lists.newArrayList;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.jcr.Credentials;
@@ -51,6 +48,10 @@ import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceEditorProvider
 import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceIndexProvider;
 import org.apache.jackrabbit.oak.plugins.name.NamespaceEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.TypeEditorProvider;
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
+import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
+import org.apache.jackrabbit.oak.plugins.tree.impl.RootProviderService;
+import org.apache.jackrabbit.oak.plugins.tree.impl.TreeProviderService;
 import org.apache.jackrabbit.oak.plugins.value.jcr.ValueFactoryImpl;
 import org.apache.jackrabbit.oak.plugins.version.VersionHook;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
@@ -65,6 +66,8 @@ import org.apache.jackrabbit.oak.spi.security.user.UserConfiguration;
 import org.apache.jackrabbit.oak.spi.security.user.util.UserUtil;
 import org.junit.After;
 import org.junit.Before;
+
+import static com.google.common.collect.Lists.newArrayList;
 
 /**
  * AbstractOakTest is the base class for oak test execution.
@@ -81,6 +84,9 @@ public abstract class AbstractSecurityTest {
     protected Root root;
 
     protected QueryEngineSettings querySettings;
+
+    protected final RootProvider rootProvider = new RootProviderService();
+    protected final TreeProvider treeProvider = new TreeProviderService();
 
     @Before
     public void before() throws Exception {

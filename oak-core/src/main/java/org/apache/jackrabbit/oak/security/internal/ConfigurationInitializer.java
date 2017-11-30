@@ -19,6 +19,8 @@ package org.apache.jackrabbit.oak.security.internal;
 import java.util.List;
 import javax.annotation.Nonnull;
 
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
+import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
 import org.apache.jackrabbit.oak.spi.security.CompositeConfiguration;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationBase;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
@@ -30,15 +32,17 @@ class ConfigurationInitializer {
     private ConfigurationInitializer() {}
 
     @Nonnull
-    static <T extends SecurityConfiguration> T initializeConfiguration(@Nonnull SecurityProvider securityProvider, @Nonnull T configuration) {
-        return initializeConfiguration(securityProvider, configuration, ConfigurationParameters.EMPTY);
+    static <T extends SecurityConfiguration> T initializeConfiguration(@Nonnull SecurityProvider securityProvider, @Nonnull T configuration, @Nonnull RootProvider rootProvider, @Nonnull TreeProvider treeProvider) {
+        return initializeConfiguration(securityProvider, configuration, ConfigurationParameters.EMPTY, rootProvider, treeProvider);
     }
 
     @Nonnull
-    static <T extends SecurityConfiguration> T initializeConfiguration(@Nonnull SecurityProvider securityProvider, @Nonnull T configuration, @Nonnull ConfigurationParameters parameters) {
+    static <T extends SecurityConfiguration> T initializeConfiguration(@Nonnull SecurityProvider securityProvider, @Nonnull T configuration, @Nonnull ConfigurationParameters parameters, @Nonnull RootProvider rootProvider, @Nonnull TreeProvider treeProvider) {
         if (configuration instanceof ConfigurationBase) {
             ConfigurationBase base = (ConfigurationBase) configuration;
             base.setSecurityProvider(securityProvider);
+            base.setRootProvider(rootProvider);
+            base.setTreeProvider(treeProvider);
             base.setParameters(ConfigurationParameters.of(base.getParameters(), parameters));
         }
         return configuration;
@@ -46,11 +50,16 @@ class ConfigurationInitializer {
 
     static void initializeConfigurations(@Nonnull SecurityProvider securityProvider,
                                          @Nonnull CompositeConfiguration configuration,
-                                         @Nonnull ConfigurationParameters parameters) {
+                                         @Nonnull ConfigurationParameters parameters,
+                                         @Nonnull RootProvider rootProvider,
+                                         @Nonnull TreeProvider treeProvider) {
         configuration.setSecurityProvider(securityProvider);
+        configuration.setRootProvider(rootProvider);
+        configuration.setTreeProvider(treeProvider);
+
         List<? extends SecurityConfiguration> configs = configuration.getConfigurations();
         for (SecurityConfiguration config : configs) {
-            initializeConfiguration(securityProvider, config, parameters);
+            initializeConfiguration(securityProvider, config, parameters, rootProvider, treeProvider);
         }
     }
 }

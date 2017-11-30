@@ -341,7 +341,7 @@ public class UserValidatorTest extends AbstractSecurityTest implements UserConst
 
     @Test
     public void hiddenNodeAdded() throws CommitFailedException {
-        UserValidatorProvider provider = new UserValidatorProvider(getConfig());
+        UserValidatorProvider provider = new UserValidatorProvider(getConfig(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeState root = store.getRoot();
         NodeBuilder builder = root.builder();
@@ -361,7 +361,7 @@ public class UserValidatorTest extends AbstractSecurityTest implements UserConst
 
     @Test
     public void hiddenNodeChanged() throws CommitFailedException {
-        UserValidatorProvider provider = new UserValidatorProvider(getConfig());
+        UserValidatorProvider provider = new UserValidatorProvider(getConfig(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeBuilder builder = store.getRoot().builder();
         builder.child("test").child(":hidden");
@@ -384,7 +384,7 @@ public class UserValidatorTest extends AbstractSecurityTest implements UserConst
 
     @Test
     public void hiddenNodeDeleted() throws CommitFailedException {
-        UserValidatorProvider provider = new UserValidatorProvider(getConfig());
+        UserValidatorProvider provider = new UserValidatorProvider(getConfig(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeBuilder builder = store.getRoot().builder();
         builder.child("test").child(":hidden");

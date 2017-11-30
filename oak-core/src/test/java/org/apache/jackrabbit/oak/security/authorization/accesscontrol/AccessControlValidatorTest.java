@@ -32,9 +32,9 @@ import org.apache.jackrabbit.oak.AbstractSecurityTest;
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
-import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.Validator;
+import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants;
 import org.apache.jackrabbit.oak.spi.security.privilege.PrivilegeConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
@@ -406,7 +406,7 @@ public class AccessControlValidatorTest extends AbstractSecurityTest implements 
 
     @Test
     public void hiddenNodeAdded() throws CommitFailedException {
-        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider());
+        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeState root = store.getRoot();
         NodeBuilder builder = root.builder();
@@ -425,7 +425,7 @@ public class AccessControlValidatorTest extends AbstractSecurityTest implements 
 
     @Test
     public void hiddenNodeChanged() throws CommitFailedException {
-        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider());
+        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeBuilder builder = store.getRoot().builder();
         builder.child("test").child(":hidden");
@@ -447,7 +447,7 @@ public class AccessControlValidatorTest extends AbstractSecurityTest implements 
 
     @Test
     public void hiddenNodeDeleted() throws CommitFailedException {
-        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider());
+        AccessControlValidatorProvider provider = new AccessControlValidatorProvider(getSecurityProvider(), rootProvider, treeProvider);
         MemoryNodeStore store = new MemoryNodeStore();
         NodeBuilder builder = store.getRoot().builder();
         builder.child("test").child(":hidden");

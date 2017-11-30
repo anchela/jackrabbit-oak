@@ -37,13 +37,11 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.jackrabbit.api.security.principal.PrincipalManager;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.commons.PropertiesUtil;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
-import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
@@ -102,9 +100,6 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
     private SyncConfigTracker syncConfigTracker;
     private SyncHandlerMappingTracker syncHandlerMappingTracker;
 
-    @Reference
-    private RootProvider rootProvider;
-
     @SuppressWarnings("UnusedDeclaration")
     public ExternalPrincipalConfiguration() {
         super();
@@ -142,7 +137,7 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
     @Nonnull
     @Override
     public RepositoryInitializer getRepositoryInitializer() {
-        return new ExternalIdentityRepositoryInitializer(protectedExternalIds(), rootProvider);
+        return new ExternalIdentityRepositoryInitializer(protectedExternalIds(), getRootProvider());
     }
 
     @Nonnull
@@ -180,14 +175,6 @@ public class ExternalPrincipalConfiguration extends ConfigurationBase implements
         if (syncHandlerMappingTracker != null) {
             syncHandlerMappingTracker.close();
         }
-    }
-
-    public void bindRootProvider(RootProvider rootProvider) {
-        this.rootProvider = rootProvider;
-    }
-
-    public void unbindRootProvider(RootProvider rootProvider) {
-        this.rootProvider = null;
     }
 
     //------------------------------------------------------------< private >---

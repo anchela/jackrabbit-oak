@@ -16,7 +16,6 @@
  */
 package org.apache.jackrabbit.oak.spi.security.authentication.external.impl.principal;
 
-import java.lang.reflect.Field;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -62,11 +61,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 public class ExternalPrincipalConfigurationTest extends AbstractExternalAuthTest {
-
-    @Override
-    public void before() throws Exception {
-        super.before();
-    }
 
     private void enable() {
         context.registerService(SyncHandler.class, new DefaultSyncHandler(), ImmutableMap.<String, Object>of(DefaultSyncConfigImpl.PARAM_USER_DYNAMIC_MEMBERSHIP, true));
@@ -264,14 +258,6 @@ public class ExternalPrincipalConfigurationTest extends AbstractExternalAuthTest
 
         registration3.unregister();
         assertIsEnabled(externalPrincipalConfiguration, false);
-    }
-
-    @Test
-    public void testBindRootProvider() throws Exception {
-        Field f = ExternalPrincipalConfiguration.class.getDeclaredField("rootProvider");
-        f.setAccessible(true);
-
-        assertNotNull(f.get(context.getService(PrincipalConfiguration.class)));
     }
 
     private static final class TestSyncHandler implements SyncHandler {

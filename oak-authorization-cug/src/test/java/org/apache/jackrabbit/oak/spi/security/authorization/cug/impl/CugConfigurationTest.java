@@ -16,7 +16,6 @@
  */
 package org.apache.jackrabbit.oak.spi.security.authorization.cug.impl;
 
-import java.lang.reflect.Field;
 import java.security.Principal;
 import java.util.List;
 import java.util.Set;
@@ -28,8 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.jackrabbit.oak.AbstractSecurityTest;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
-import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
-import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
 import org.apache.jackrabbit.oak.spi.commit.CommitHook;
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
@@ -44,10 +41,8 @@ import org.apache.jackrabbit.oak.spi.security.principal.SystemPrincipal;
 import org.apache.jackrabbit.oak.spi.security.principal.SystemUserPrincipal;
 import org.apache.jackrabbit.oak.spi.xml.ProtectedItemImporter;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -221,40 +216,6 @@ public class CugConfigurationTest extends AbstractSecurityTest {
                 CugConstants.PARAM_CUG_SUPPORTED_PATHS, new String[]{"/changed"}
         ));
         assertSupportedPaths(cugConfiguration, "/changed");
-    }
-
-    @Test
-    public void testBindTreeProvider() throws Exception {
-        Field f = CugConfiguration.class.getDeclaredField("treeProvider");
-        f.setAccessible(true);
-
-        CugConfiguration cugConfiguration = new CugConfiguration();
-        assertNull(f.get(cugConfiguration));
-
-        TreeProvider tp = Mockito.mock(TreeProvider.class);
-        cugConfiguration.bindTreeProvider(tp);
-
-        assertSame(tp, f.get(cugConfiguration));
-
-        cugConfiguration.unbindTreeProvider(tp);
-        assertNull(f.get(cugConfiguration));
-    }
-
-    @Test
-    public void testBindRootProvider() throws Exception {
-        Field f = CugConfiguration.class.getDeclaredField("rootProvider");
-        f.setAccessible(true);
-
-        CugConfiguration cugConfiguration = new CugConfiguration();
-        assertNull(f.get(cugConfiguration));
-
-        RootProvider rp = Mockito.mock(RootProvider.class);
-        cugConfiguration.bindRootProvider(rp);
-
-        assertSame(rp, f.get(cugConfiguration));
-
-        cugConfiguration.unbindRootProvider(rp);
-        assertNull(f.get(cugConfiguration));
     }
 
     private static void assertSupportedPaths(@Nonnull CugConfiguration configuration, @Nonnull String... paths) throws Exception {

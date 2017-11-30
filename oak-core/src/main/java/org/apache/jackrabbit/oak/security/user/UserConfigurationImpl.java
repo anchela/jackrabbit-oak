@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -29,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
+import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
+import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
 import org.apache.jackrabbit.oak.security.user.autosave.AutoSaveEnabledManager;
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ThreeWayConflictHandler;
@@ -48,6 +49,7 @@ import org.apache.jackrabbit.oak.spi.xml.ImportBehavior;
 import org.apache.jackrabbit.oak.spi.xml.ProtectedItemImporter;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.Designate;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
@@ -158,6 +160,12 @@ public class UserConfigurationImpl extends ConfigurationBase implements UserConf
 
     private static final UserAuthenticationFactory DEFAULT_AUTH_FACTORY = new UserAuthenticationFactoryImpl();
 
+    @Reference
+    private RootProvider rootProvider;
+
+    @Reference
+    private TreeProvider treeProvider;
+
     public UserConfigurationImpl() {
         super();
     }
@@ -206,7 +214,7 @@ public class UserConfigurationImpl extends ConfigurationBase implements UserConf
     @Nonnull
     @Override
     public List<? extends ValidatorProvider> getValidators(@Nonnull String workspaceName, @Nonnull Set<Principal> principals, @Nonnull MoveTracker moveTracker) {
-        return ImmutableList.of(new UserValidatorProvider(getParameters()), new CacheValidatorProvider(principals));
+        return ImmutableList.of(new UserValidatorProvider(getParameters(), getRootProvider(), getTreeProvider()), new CacheValidatorProvider(principals, getTreeProvider()));
     }
 
     @Nonnull

@@ -18,10 +18,6 @@ package org.apache.jackrabbit.oak.spi.security.authorization.cug.impl;
 
 import javax.annotation.Nonnull;
 
-import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
-import org.apache.jackrabbit.oak.plugins.tree.TreeProvider;
-import org.apache.jackrabbit.oak.plugins.tree.impl.RootProviderService;
-import org.apache.jackrabbit.oak.plugins.tree.impl.TreeProviderService;
 import org.apache.jackrabbit.oak.security.SecurityProviderImpl;
 import org.apache.jackrabbit.oak.security.authorization.composite.CompositeAuthorizationConfiguration;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
@@ -30,9 +26,6 @@ import org.apache.jackrabbit.oak.spi.security.authorization.AuthorizationConfigu
 import static com.google.common.base.Preconditions.checkNotNull;
 
 final class CugSecurityProvider extends SecurityProviderImpl {
-
-    RootProvider rootProvider = new RootProviderService();
-    TreeProvider treeProvider = new TreeProviderService();
 
     private CugConfiguration cugConfiguration;
 
@@ -45,8 +38,6 @@ final class CugSecurityProvider extends SecurityProviderImpl {
         } else {
             cugConfiguration = new CugConfiguration();
             cugConfiguration.setSecurityProvider(this);
-            cugConfiguration.bindRootProvider(rootProvider);
-            cugConfiguration.bindTreeProvider(treeProvider);
             cugConfiguration.activate(configuration.getConfigValue(AuthorizationConfiguration.NAME, ConfigurationParameters.EMPTY));
 
             AuthorizationConfiguration defConfig = checkNotNull(((CompositeAuthorizationConfiguration) authorizationConfiguration).getDefaultConfig());

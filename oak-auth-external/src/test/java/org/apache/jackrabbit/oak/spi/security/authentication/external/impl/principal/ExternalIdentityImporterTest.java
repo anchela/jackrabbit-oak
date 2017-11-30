@@ -80,7 +80,7 @@ public class ExternalIdentityImporterTest {
     @Before
     public void before() throws Exception {
         ExternalPrincipalConfiguration epc = new ExternalPrincipalConfiguration();
-        epc.bindRootProvider(new RootProviderService());
+        epc.setRootProvider(new RootProviderService());
         securityProvider = new TestSecurityProvider(getConfigurationParameters(), epc);
         QueryEngineSettings queryEngineSettings = new QueryEngineSettings();
         queryEngineSettings.setFailTraversal(true);

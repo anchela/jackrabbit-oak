@@ -18,17 +18,16 @@ package org.apache.jackrabbit.oak.security.authorization.composite;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
-
 import javax.annotation.Nonnull;
 
 import org.apache.jackrabbit.oak.AbstractSecurityTest;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
-import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
-import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
+import org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory;
 import org.apache.jackrabbit.oak.plugins.tree.impl.ImmutableTree;
 import org.apache.jackrabbit.oak.security.authorization.composite.CompositeAuthorizationConfiguration.CompositionType;
+import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.security.Context;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.AggregatedPermissionProvider;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.TreePermission;
@@ -74,7 +73,7 @@ public class CompositeTreePermissionTest extends AbstractSecurityTest {
     }
 
     private TreePermission createRootTreePermission(AggregatedPermissionProvider... providers) {
-        return new CompositePermissionProvider(readOnlyRoot, Arrays.asList(providers), Context.DEFAULT, CompositionType.AND)
+        return new CompositePermissionProvider(readOnlyRoot, Arrays.asList(providers), Context.DEFAULT, CompositionType.AND, rootProvider)
                 .getTreePermission(rootTree, TreePermission.EMPTY);
     }
 
