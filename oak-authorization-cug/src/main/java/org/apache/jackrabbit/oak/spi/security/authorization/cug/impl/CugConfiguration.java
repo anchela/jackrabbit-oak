@@ -87,6 +87,9 @@ import static org.apache.jackrabbit.oak.spi.security.RegistrationConstants.OAK_S
                 label = "CUG Evaluation Enabled",
                 description = "Flag to enable the evaluation of the configured CUG policies.",
                 boolValue = false),
+        @Property(name = CugConstants.PARAM_CUG_ALL_PRINCIPALS,
+                label = "CUG Matching ALL Principals",
+                boolValue = false),
         @Property(name = CompositeConfiguration.PARAM_RANKING,
                 label = "Ranking",
                 description = "Ranking of this configuration in a setup with multiple authorization configurations.",
@@ -142,7 +145,7 @@ public class CugConfiguration extends ConfigurationBase implements Authorization
         if (!enabled || supportedPaths.isEmpty() || getExclude().isExcluded(principals)) {
             return EmptyPermissionProvider.getInstance();
         } else {
-            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext(), getRootProvider(), getTreeProvider());
+            return new CugPermissionProvider(root, workspaceName, principals, supportedPaths, getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getContext(), getRootProvider(), getTreeProvider(), params.getConfigValue(PARAM_CUG_ALL_PRINCIPALS, false));
         }
     }
 

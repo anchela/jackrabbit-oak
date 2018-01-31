@@ -18,12 +18,16 @@ package org.apache.jackrabbit.oak.spi.security.authorization.cug.impl;
 
 import java.security.Principal;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Root;
@@ -58,7 +62,7 @@ class CugPermissionProvider implements AggregatedPermissionProvider, CugConstant
 
     private final Root root;
     private final String workspaceName;
-    private final String[] principalNames;
+    private final Set<String> principalNames;
 
     private final TreeTypeProvider typeProvider;
     private final Context ctx;
@@ -72,6 +76,8 @@ class CugPermissionProvider implements AggregatedPermissionProvider, CugConstant
     private final RootProvider rootProvider;
     private final TreeProvider treeProvider;
 
+    private final boolean matchingAllPrincipals;
+
     CugPermissionProvider(@Nonnull Root root,
                           @Nonnull String workspaceName,
                           @Nonnull Set<Principal> principals,
@@ -79,16 +85,27 @@ class CugPermissionProvider implements AggregatedPermissionProvider, CugConstant
                           @Nonnull Context ctx,
                           @Nonnull RootProvider rootProvider,
                           @Nonnull TreeProvider treeProvider) {
+        this(root, workspaceName, principals, supportedPaths, ctx, rootProvider, treeProvider, false);
+    }
+
+    CugPermissionProvider(@Nonnull Root root,
+                          @Nonnull String workspaceName,
+                          @Nonnull Set<Principal> principals,
+                          @Nonnull Set<String> supportedPaths,
+                          @Nonnull Context ctx,
+                          @Nonnull RootProvider rootProvider,
+                          @Nonnull TreeProvider treeProvider,
+                          boolean matchingAllPrincipals) {
         this.root = root;
         this.rootProvider = rootProvider;
         this.treeProvider = treeProvider;
         this.workspaceName = workspaceName;
 
         immutableRoot = rootProvider.createReadOnlyRoot(root);
-        principalNames = new String[principals.size()];
+        principalNames = new HashSet(principals.size());
         int i = 0;
         for (Principal p : principals) {
-            principalNames[i++] = p.getName();
+            principalNames.add(p.getName());
         }
 
         this.supportedPaths = new SupportedPaths(supportedPaths);
@@ -96,6 +113,7 @@ class CugPermissionProvider implements AggregatedPermissionProvider, CugConstant
         this.ctx = ctx;
 
         topPaths = new TopLevelPaths(immutableRoot);
+        this.matchingAllPrincipals = matchingAllPrincipals;
     }
 
     @Nonnull
@@ -108,10 +126,14 @@ class CugPermissionProvider implements AggregatedPermissionProvider, CugConstant
     boolean isAllow(@Nonnull Tree cugTree) {
         PropertyState princNamesState = cugTree.getProperty(REP_PRINCIPAL_NAMES);
         if (princNamesState != null) {
-            for (String pName : princNamesState.getValue(Type.STRINGS)) {
-                for (String pN : principalNames) {
-                    if (pName.equals(pN)) {
-                        return true;
+            if (matchingAllPrincipals) {
+                return principalNames.containsAll(ImmutableList.copyOf(princNamesState.getValue(Type.STRINGS)));
+            } else {
+                for (String pName : princNamesState.getValue(Type.STRINGS)) {
+                    for (String pN : principalNames) {
+                        if (pName.equals(pN)) {
+                            return true;
+                        }
                     }
                 }
             }

@@ -77,4 +77,17 @@ interface CugConstants {
      * </ul>
      */
     String PARAM_CUG_ENABLED = "cugEnabled";
+
+    /**
+     * Name of the configuration option that specifies whether all principals defined
+     * in the CUG must be matched by the editing subject in order to be granted access.
+     * If set to false (default), a single matching principals is sufficient.
+     *
+     * <ul>
+     *     <li>Value Type: boolean</li>
+     *     <li>Default: false</li>
+     *     <li>Multiple: false</li>
+     * </ul>
+     */
+    String PARAM_CUG_ALL_PRINCIPALS = "cugAllPrincipals";
 }
