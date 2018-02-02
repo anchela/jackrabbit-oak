@@ -66,7 +66,7 @@ public class PermissionEntryProviderImplTest {
 
         // test that PermissionEntryProviderImpl.existingNames nevertheless is
         // properly filled with all principal names for which permission entries exist
-        assertEquals(principalNames, existingNamesField.get(provider));
+        assertEquals(principalNames, ((Map<String, Set<String>>)existingNamesField.get(provider)).keySet());
         assertNotSame(Collections.emptyIterator(), provider.getEntryIterator(new EntryPredicate()));
     }
 
@@ -144,7 +144,7 @@ public class PermissionEntryProviderImplTest {
     private static Set<String> getExistingNames(@Nonnull PermissionEntryProviderImpl provider) throws Exception {
         Field existingNamesField = provider.getClass().getDeclaredField("existingNames");
         existingNamesField.setAccessible(true);
-        return (Set<String>) existingNamesField.get(provider);
+        return ((Map<String, Set<String>>) existingNamesField.get(provider)).keySet();
     }
 
     // Inner Classes
@@ -174,6 +174,11 @@ public class PermissionEntryProviderImplTest {
                 cnt = Long.MAX_VALUE;
             }
             return cnt;
+        }
+
+        @Override
+        public Set<String> getPaths(@Nonnull String principalName, long max) {
+            return ImmutableSet.of();
         }
 
         public void flush(@Nonnull Root root) {

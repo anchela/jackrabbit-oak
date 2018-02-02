@@ -18,23 +18,25 @@ package org.apache.jackrabbit.oak.security.authorization.permission;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
-
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
+import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.PermissionConstants;
 import org.apache.jackrabbit.oak.spi.security.authorization.restriction.RestrictionProvider;
 import org.apache.jackrabbit.oak.spi.security.privilege.PrivilegeBits;
 import org.apache.jackrabbit.oak.spi.security.privilege.PrivilegeBitsProvider;
 import org.apache.jackrabbit.oak.spi.security.privilege.PrivilegeConstants;
-import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,6 +108,21 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
     }
 
     @Override
+    public Set<String> getPaths(@Nonnull String principalName, long max) {
+        Set<String> paths = new HashSet();
+        Tree principalRoot = getPrincipalRoot(principalName);
+        if (principalRoot != null) {
+            for (Tree entryTree : principalRoot.getChildren()) {
+                loadAccessControlledPaths(entryTree, paths);
+                if (paths.size() > max) {
+                    return ImmutableSet.of();
+                }
+            }
+        }
+        return paths;
+    }
+
+    @Override
     @Nonnull
     public PrincipalPermissionEntries load(@Nonnull String principalName) {
         long t0 = System.nanoTime();
@@ -136,6 +153,21 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
             }
             principalTreeMap.put(principalName, principalRoot);
             return principalRoot;
+        }
+    }
+
+    private void loadAccessControlledPaths(@Nonnull Tree tree, @Nonnull Set<String> paths) {
+        String path = TreeUtil.getString(tree, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
+        if (path != null) {
+            paths.add(path);
+            for (Tree child : tree.getChildren()) {
+                if (child.getName().charAt(0) == 'c') {
+                    String p = TreeUtil.getString(child, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
+                    if (p != null) {
+                        paths.add((p));
+                    }
+                }
+            }
         }
     }
 

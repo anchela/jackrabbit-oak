@@ -19,7 +19,6 @@ package org.apache.jackrabbit.oak.security.authorization.permission;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -27,6 +26,7 @@ import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import org.apache.jackrabbit.commons.iterator.AbstractLazyIterator;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.commons.LongUtils;
@@ -39,6 +39,8 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
 
     private static final long DEFAULT_SIZE = 250;
 
+    private static final long MAX_PATHS_SIZE = 10;
+
     /**
      * The set of principal names for which this {@code PermissionEntryProvider}
      * has been created.
@@ -46,13 +48,16 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
     private final Set<String> principalNames;
 
     /**
-     * The set of principal names for which the store contains any permission
-     * entries. This set is equals or just a subset of the {@code principalNames}
+     * The map of principal names for which the store contains any permission
+     * entries. It's key set is equals or just a subset of the {@code principalNames}
      * defined above. The methods collecting the entries will shortcut in case
      * this set is empty and thus no permission entries exist for the specified
      * set of principal.
+     * The values of the map may optionally contain all access controlled paths
+     * containing entries for the given principal name. An empty value set indicates
+     * that there are more than MAX_PATHS_SIZE entries in which case this paths are not pre-loaded.
      */
-    private final Set<String> existingNames = new HashSet<String>();
+    private final Map<String,Set<String>> existingNames = new HashMap<String, Set<String>>();
 
     private final PermissionStore store;
 
@@ -81,7 +86,11 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
             remember this principal name int the 'existingNames' set
             */
             if (n > 0) {
-                existingNames.add(name);
+                if (n <= MAX_PATHS_SIZE) {
+                    existingNames.put(name, store.getPaths(name, MAX_PATHS_SIZE));
+                } else {
+                    existingNames.put(name, ImmutableSet.of());
+                }
             }
             /*
             Calculate the total number of permission entries (cnt) defined for the
@@ -104,7 +113,7 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
             // the total number of entries is smaller that maxSize, so we can
             // cache all entries for all principals having any entries right away
             pathEntryMap = new HashMap<String, Collection<PermissionEntry>>();
-            for (String name : existingNames) {
+            for (String name : existingNames.keySet()) {
                 cache.load(store, pathEntryMap, name);
             }
         } else {
@@ -160,8 +169,19 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
     @Nonnull
     private Collection<PermissionEntry> loadEntries(@Nonnull String path) {
         Collection<PermissionEntry> ret = new TreeSet<PermissionEntry>();
-        for (String name : existingNames) {
-            cache.load(store, ret, name, path);
+        for (Map.Entry<String,Set<String>> nameEntry : existingNames.entrySet()) {
+            String principalName = nameEntry.getKey();
+            // conditionally load the permission entries for the principal name
+            // in 'nameEntry' at the given 'path'. entries are read from the store if
+            // - existingPaths is empty (-> too many permission entries to have all paths pre-loaded)
+            // or
+            // - existingPaths have been preloaded and contain the given 'path'
+            // the latter will avoid eagerly reading from the store when it's known
+            // no entry exists.
+            Set<String> existingPaths = nameEntry.getValue();
+            if (existingPaths.isEmpty() || existingPaths.contains(path)) {
+                cache.load(store, ret, principalName, path);
+            }
         }
         return ret;
     }

@@ -17,6 +17,7 @@
 package org.apache.jackrabbit.oak.security.authorization.permission;
 
 import java.util.Collection;
+import java.util.Set;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
@@ -49,6 +50,8 @@ interface PermissionStore {
     PrincipalPermissionEntries load(@Nonnull String principalName);
 
     long getNumEntries(@Nonnull String principalName, long max);
+
+    Set<String> getPaths(@Nonnull String principalName, long max);
 
     void flush(@Nonnull Root root);
 
