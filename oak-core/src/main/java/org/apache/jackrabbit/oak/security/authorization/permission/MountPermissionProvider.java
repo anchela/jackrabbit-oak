@@ -20,6 +20,7 @@ import static com.google.common.collect.Lists.newArrayList;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -27,6 +28,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.commons.LongUtils;
 import org.apache.jackrabbit.oak.plugins.tree.RootProvider;
@@ -113,6 +115,20 @@ public class MountPermissionProvider extends PermissionProviderImpl {
                 }
             }
             return num;
+        }
+
+        @Override
+        public Set<String> getPaths(@Nonnull String principalName, long max) {
+            Set<String> paths = new HashSet<>();
+            for (PermissionStoreImpl store : stores) {
+                Set<String> toAdd = store.getPaths(principalName, max);
+                if (LongUtils.safeAdd(toAdd.size(), paths.size()) > max) {
+                    return ImmutableSet.of();
+                } else {
+                    paths.addAll(toAdd);
+                }
+            }
+            return paths;
         }
 
         @Override

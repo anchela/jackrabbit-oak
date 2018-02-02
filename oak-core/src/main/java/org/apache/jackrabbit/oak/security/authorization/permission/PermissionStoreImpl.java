@@ -156,16 +156,13 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
         }
     }
 
-    private void loadAccessControlledPaths(@Nonnull Tree tree, @Nonnull Set<String> paths) {
-        String path = TreeUtil.getString(tree, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
+    private void loadAccessControlledPaths(@Nonnull Tree entryTree, @Nonnull Set<String> paths) {
+        String path = TreeUtil.getString(entryTree, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
         if (path != null) {
             paths.add(path);
-            for (Tree child : tree.getChildren()) {
+            for (Tree child : entryTree.getChildren()) {
                 if (child.getName().charAt(0) == 'c') {
-                    String p = TreeUtil.getString(child, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
-                    if (p != null) {
-                        paths.add((p));
-                    }
+                    loadAccessControlledPaths(child, paths);
                 }
             }
         }
