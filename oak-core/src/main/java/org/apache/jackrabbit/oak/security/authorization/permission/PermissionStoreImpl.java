@@ -113,7 +113,7 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
         Tree principalRoot = getPrincipalRoot(principalName);
         if (principalRoot != null) {
             for (Tree entryTree : principalRoot.getChildren()) {
-                loadPermissionEntries(entryTree, ret.getEntries());
+                loadPermissionEntries(entryTree, ret);
             }
         }
         ret.setFullyLoaded(true);
@@ -140,17 +140,17 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
     }
 
     private void loadPermissionEntries(@Nonnull Tree tree,
-                                       @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap) {
+                                       @Nonnull PrincipalPermissionEntries principalPermissionEntries) {
         String path = TreeUtil.getString(tree, PermissionConstants.REP_ACCESS_CONTROLLED_PATH);
         if (path != null) {
-            Collection<PermissionEntry> entries = pathEntryMap.get(path);
+            Collection<PermissionEntry> entries = principalPermissionEntries.getEntriesByPath(path);
             if (entries == null) {
                 entries = new TreeSet<PermissionEntry>();
-                pathEntryMap.put(path, entries);
+                principalPermissionEntries.putEntriesByPath(path, entries);
             }
             for (Tree child : tree.getChildren()) {
                 if (child.getName().charAt(0) == 'c') {
-                    loadPermissionEntries(child, pathEntryMap);
+                    loadPermissionEntries(child, principalPermissionEntries);
                 } else {
                     entries.add(createPermissionEntry(path, child));
                 }

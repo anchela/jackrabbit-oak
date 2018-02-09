@@ -97,7 +97,7 @@ public class MountPermissionProvider extends PermissionProviderImpl {
         public PrincipalPermissionEntries load(@Nonnull String principalName) {
             PrincipalPermissionEntries ppe = new PrincipalPermissionEntries();
             for (PermissionStoreImpl store : stores) {
-                ppe.getEntries().putAll(store.load(principalName).getEntries());
+                ppe.putAllEntries(store.load(principalName).getEntries());
             }
             ppe.setFullyLoaded(true);
             return ppe;

@@ -41,8 +41,8 @@ class PermissionEntryCache {
     private final Map<String, PrincipalPermissionEntries> entries = new HashMap<String, PrincipalPermissionEntries>();
 
     @Nonnull
-    PrincipalPermissionEntries getEntries(@Nonnull PermissionStore store,
-                                                 @Nonnull String principalName) {
+    private PrincipalPermissionEntries getEntries(@Nonnull PermissionStore store,
+                                                  @Nonnull String principalName) {
         PrincipalPermissionEntries ppe = entries.get(principalName);
         if (ppe == null) {
             ppe = store.load(principalName);
@@ -57,11 +57,15 @@ class PermissionEntryCache {
     }
 
     void load(@Nonnull PermissionStore store,
-              @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap,
               @Nonnull String principalName) {
-        // todo: conditionally load entries if too many
         PrincipalPermissionEntries ppe = getEntries(store, principalName);
-        for (Map.Entry<String, Collection<PermissionEntry>> e: ppe.getEntries().entrySet()) {
+    }
+
+    void load(@Nonnull PermissionStore store,
+              @Nonnull String principalName,
+              @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap) {
+        PrincipalPermissionEntries ppe = getEntries(store, principalName);
+        for (Map.Entry<String, Collection<PermissionEntry>> e : ppe.getEntries().entrySet()) {
             Collection<PermissionEntry> pathEntries = pathEntryMap.get(e.getKey());
             if (pathEntries == null) {
                 pathEntries = new TreeSet<PermissionEntry>(e.getValue());
@@ -81,17 +85,24 @@ class PermissionEntryCache {
             ppe = new PrincipalPermissionEntries();
             entries.put(principalName, ppe);
         }
-        Collection<PermissionEntry> pes = ppe.getEntries().get(path);
-        if (pes == null) {
-            pes = store.load(null, principalName, path);
-            if (pes == null) {
-                pes = Collections.emptySet();
-            } else {
+        Collection<PermissionEntry> pes = ppe.getEntriesByPath(path);
+        if (ppe.isFullyLoaded() || pes != null) {
+            // no need to read from store
+            if (pes != null) {
                 ret.addAll(pes);
             }
-            ppe.getEntries().put(path, pes);
         } else {
-            ret.addAll(pes);
+            // read entries for path from store
+            pes = store.load(null, principalName, path);
+            if (pes == null) {
+                // nothing to add to the result collection 'ret'.
+                // nevertheless, remember the absence of any permission entries
+                // in the cache to avoid reading from store again.
+                ppe.putEntriesByPath(path, Collections.emptySet());
+            } else {
+                ppe.putEntriesByPath(path, pes);
+                ret.addAll(pes);
+            }
         }
     }
 

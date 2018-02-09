@@ -105,7 +105,7 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
             // cache all entries for all principals having any entries right away
             pathEntryMap = new HashMap<String, Collection<PermissionEntry>>();
             for (String name : existingNames) {
-                cache.load(store, pathEntryMap, name);
+                cache.load(store, name, pathEntryMap);
             }
         } else {
             pathEntryMap = null;

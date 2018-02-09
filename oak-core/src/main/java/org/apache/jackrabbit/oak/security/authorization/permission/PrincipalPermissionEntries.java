@@ -19,6 +19,7 @@ package org.apache.jackrabbit.oak.security.authorization.permission;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 
 /**
@@ -54,5 +55,19 @@ class PrincipalPermissionEntries {
     @Nonnull
     Map<String, Collection<PermissionEntry>> getEntries() {
         return entries;
+    }
+
+    @CheckForNull
+    Collection<PermissionEntry> getEntriesByPath(@Nonnull String path) {
+        return entries.get(path);
+    }
+
+    void putEntriesByPath(@Nonnull String path, @Nonnull Collection<PermissionEntry> pathEntries) {
+        entries.put(path, pathEntries);
+    }
+
+    void putAllEntries(Map<String, Collection<PermissionEntry>> allEntries) {
+        entries.putAll(allEntries);
+        setFullyLoaded(true);
     }
 }

@@ -184,8 +184,7 @@ public class PermissionEntryProviderImplTest {
     private class MockPermissionEntryCache extends PermissionEntryCache {
         @Override
         public void load(@Nonnull PermissionStore store,
-                @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap,
-                @Nonnull String principalName) {
+                         @Nonnull String principalName, @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap) {
             fail("The number of  entries exceeds the max cache size");
         }
     }
