@@ -28,43 +28,31 @@ import javax.annotation.Nonnull;
  * {@code PermissionEntryCache} caches the permission entries of principals.
  * The cache is held locally for each session and contains a version of the principal permission
  * entries of the session that read them last.
- *
- * TODO:
- * - report cache usage metrics
- * - limit size of local caches based on ppe sizes. the current implementation loads all ppes. this can get a memory
- *   problem, as well as a performance problem for principals with many entries. principals with many entries must
- *   fallback to the direct store.load() methods when providing the entries. if those principals with many entries
- *   are used often, they might get elected to live in the global cache; memory permitting.
  */
 class PermissionEntryCache {
 
     private final Map<String, PrincipalPermissionEntries> entries = new HashMap<String, PrincipalPermissionEntries>();
 
     @Nonnull
-    private PrincipalPermissionEntries getEntries(@Nonnull PermissionStore store,
-                                                  @Nonnull String principalName) {
+    private PrincipalPermissionEntries getFullyLoadedEntries(@Nonnull PermissionStore store,
+                                                             @Nonnull String principalName) {
         PrincipalPermissionEntries ppe = entries.get(principalName);
-        if (ppe == null) {
+        if (ppe == null || !ppe.isFullyLoaded()) {
             ppe = store.load(principalName);
             entries.put(principalName, ppe);
-        } else {
-            if (!ppe.isFullyLoaded()) {
-                ppe = store.load(principalName);
-                entries.put(principalName, ppe);
-            }
         }
         return ppe;
     }
 
     void load(@Nonnull PermissionStore store,
               @Nonnull String principalName) {
-        PrincipalPermissionEntries ppe = getEntries(store, principalName);
+        PrincipalPermissionEntries ppe = getFullyLoadedEntries(store, principalName);
     }
 
     void load(@Nonnull PermissionStore store,
               @Nonnull String principalName,
               @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap) {
-        PrincipalPermissionEntries ppe = getEntries(store, principalName);
+        PrincipalPermissionEntries ppe = getFullyLoadedEntries(store, principalName);
         for (Map.Entry<String, Collection<PermissionEntry>> e : ppe.getEntries().entrySet()) {
             Collection<PermissionEntry> pathEntries = pathEntryMap.get(e.getKey());
             if (pathEntries == null) {

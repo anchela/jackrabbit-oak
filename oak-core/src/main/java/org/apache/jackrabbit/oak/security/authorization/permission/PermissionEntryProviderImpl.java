@@ -39,6 +39,8 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
 
     private static final long DEFAULT_SIZE = 250;
 
+    private static final long MAX_PATHS_SIZE = 10;
+
     /**
      * The set of principal names for which this {@code PermissionEntryProvider}
      * has been created.
@@ -82,6 +84,9 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
             */
             if (n > 0) {
                 existingNames.add(name);
+                if (n <= MAX_PATHS_SIZE) {
+                    cache.load(store, name);
+                }
             }
             /*
             Calculate the total number of permission entries (cnt) defined for the
