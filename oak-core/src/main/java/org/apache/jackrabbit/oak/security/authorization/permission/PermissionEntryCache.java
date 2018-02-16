@@ -24,12 +24,19 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * {@code PermissionEntryCache} caches the permission entries of principals.
  * The cache is held locally for each session and contains a version of the principal permission
  * entries of the session that read them last.
  */
 class PermissionEntryCache {
+
+    private static final Logger log = LoggerFactory.getLogger(PermissionEntryCache.class);
 
     private final Map<String, PrincipalPermissionEntries> entries = new HashMap<String, PrincipalPermissionEntries>();
 
@@ -42,6 +49,12 @@ class PermissionEntryCache {
             entries.put(principalName, ppe);
         }
         return ppe;
+    }
+
+    void init(@Nonnull String principalName, long expectedSize) {
+        if (!entries.containsKey(principalName)) {
+            entries.put(principalName, new PrincipalPermissionEntries(expectedSize));
+        }
     }
 
     void load(@Nonnull PermissionStore store,
@@ -68,29 +81,29 @@ class PermissionEntryCache {
               @Nonnull Collection<PermissionEntry> ret,
               @Nonnull String principalName,
               @Nonnull String path) {
-        PrincipalPermissionEntries ppe = entries.get(principalName);
-        if (ppe == null) {
-            ppe = new PrincipalPermissionEntries();
-            entries.put(principalName, ppe);
-        }
-        Collection<PermissionEntry> pes = ppe.getEntriesByPath(path);
-        if (ppe.isFullyLoaded() || pes != null) {
-            // no need to read from store
-            if (pes != null) {
-                ret.addAll(pes);
+        if (entries.containsKey(principalName)) {
+            PrincipalPermissionEntries ppe = entries.get(principalName);
+            Collection<PermissionEntry> pes = ppe.getEntriesByPath(path);
+            if (ppe.isFullyLoaded() || pes != null) {
+                // no need to read from store
+                if (pes != null) {
+                    ret.addAll(pes);
+                }
+            } else {
+                // read entries for path from store
+                pes = store.load(null, principalName, path);
+                if (pes == null) {
+                    // nothing to add to the result collection 'ret'.
+                    // nevertheless, remember the absence of any permission entries
+                    // in the cache to avoid reading from store again.
+                    ppe.putEntriesByPath(path, Collections.emptySet());
+                } else {
+                    ppe.putEntriesByPath(path, pes);
+                    ret.addAll(pes);
+                }
             }
         } else {
-            // read entries for path from store
-            pes = store.load(null, principalName, path);
-            if (pes == null) {
-                // nothing to add to the result collection 'ret'.
-                // nevertheless, remember the absence of any permission entries
-                // in the cache to avoid reading from store again.
-                ppe.putEntriesByPath(path, Collections.emptySet());
-            } else {
-                ppe.putEntriesByPath(path, pes);
-                ret.addAll(pes);
-            }
+            log.error("Failed to load entries for principal '%s' at path %s", principalName, path);
         }
     }
 

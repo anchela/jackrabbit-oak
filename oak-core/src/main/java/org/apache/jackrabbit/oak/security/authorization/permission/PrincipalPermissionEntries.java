@@ -27,6 +27,8 @@ import javax.annotation.Nonnull;
  */
 class PrincipalPermissionEntries {
 
+    private final long expectedSize;
+
     /**
      * indicating if all entries were loaded.
      */
@@ -38,6 +40,11 @@ class PrincipalPermissionEntries {
     private Map<String, Collection<PermissionEntry>> entries = new HashMap<String, Collection<PermissionEntry>>();
 
     PrincipalPermissionEntries() {
+        this(Long.MAX_VALUE);
+    }
+
+    PrincipalPermissionEntries(long expectedSize) {
+        this.expectedSize = expectedSize;
     }
 
     long getSize() {
@@ -64,6 +71,9 @@ class PrincipalPermissionEntries {
 
     void putEntriesByPath(@Nonnull String path, @Nonnull Collection<PermissionEntry> pathEntries) {
         entries.put(path, pathEntries);
+        if (entries.size() >= expectedSize) {
+            setFullyLoaded(true);
+        }
     }
 
     void putAllEntries(Map<String, Collection<PermissionEntry>> allEntries) {

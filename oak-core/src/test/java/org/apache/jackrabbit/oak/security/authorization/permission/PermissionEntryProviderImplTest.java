@@ -164,7 +164,7 @@ public class PermissionEntryProviderImplTest {
         }
 
         @Override
-        public long getNumEntries(@Nonnull String principalName, long max) {
+        public NumEntries getNumEntries(@Nonnull String principalName, long max) {
             long cnt = 0;
             if (GROUP_LONG_MAX_MINUS_10.equals(principalName)) {
                 cnt = Long.MAX_VALUE - 10;
@@ -173,7 +173,7 @@ public class PermissionEntryProviderImplTest {
             } else if (GROUP_LONG_MAX.equals(principalName)) {
                 cnt = Long.MAX_VALUE;
             }
-            return cnt;
+            return NumEntries.valueOf(cnt, true);
         }
 
         public void flush(@Nonnull Root root) {

@@ -143,22 +143,22 @@ public class MountPermissionStoreTest extends AbstractSecurityTest {
 
     @Test
     public void testGetNumEntries() {
-        assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10));
+        assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10).size);
     }
 
 
     @Test
     public void testGetNumEntriesMaxReached() throws Exception {
         PermissionStoreImpl mock = insertMockStore();
-        when(mock.getNumEntries(EveryonePrincipal.NAME, Long.valueOf(10))).thenReturn(Long.valueOf(2));
+        when(mock.getNumEntries(EveryonePrincipal.NAME, Long.valueOf(10))).thenReturn(NumEntries.valueOf(2, true));
 
-        assertEquals(4, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10));
-        assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 2));
+        assertEquals(4, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10).size);
+        assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 2).size);
     }
 
     @Test
     public void testGetNumEntriesUnknownPrincipalName() {
-        assertEquals(0, permissionStore.getNumEntries("unknown", 10));
+        assertEquals(0, permissionStore.getNumEntries("unknown", 10).size);
     }
 
     @Test

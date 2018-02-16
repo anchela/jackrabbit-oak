@@ -104,15 +104,16 @@ public class MountPermissionProvider extends PermissionProviderImpl {
         }
 
         @Override
-        public long getNumEntries(@Nonnull String principalName, long max) {
+        public NumEntries getNumEntries(@Nonnull String principalName, long max) {
             long num = 0;
             for (PermissionStoreImpl store : stores) {
-                num = LongUtils.safeAdd(num, store.getNumEntries(principalName, max));
+                NumEntries ne = store.getNumEntries(principalName, max);
+                num = LongUtils.safeAdd(num, ne.size);
                 if (num >= max) {
                     break;
                 }
             }
-            return num;
+            return NumEntries.valueOf(num, false);
         }
 
         @Override

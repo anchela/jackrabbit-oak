@@ -99,10 +99,19 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
     }
 
     @Override
-    public long getNumEntries(@Nonnull String principalName, long max) {
-        // we ignore the hash-collisions here
+    public NumEntries getNumEntries(@Nonnull String principalName, long max) {
         Tree tree = getPrincipalRoot(principalName);
-        return tree == null ? 0 : tree.getChildrenCount(max);
+        if (tree == null) {
+            return NumEntries.ZERO;
+        } else {
+            // if rep:numPermissions is present it contains the exact number of
+            // access controlled nodes for the given principal name.
+            // if this property is missing (backward compat) we use the old
+            // mechanism and use child-cnt with a max value to get a rough idea
+            // about the magnitude (note: this approximation ignores the hash-collisions)
+            long l = TreeUtil.getLong(tree, REP_NUM_PERMISSIONS, -1);
+            return (l >= 0) ? NumEntries.valueOf(l, true) : NumEntries.valueOf(tree.getChildrenCount(max), false);
+        }
     }
 
     @Override

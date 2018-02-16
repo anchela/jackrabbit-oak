@@ -77,15 +77,19 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
         long cnt = 0;
         existingNames.clear();
         for (String name : principalNames) {
-            long n = store.getNumEntries(name, maxSize);
+            NumEntries ne = store.getNumEntries(name, maxSize);
+            long n = ne.size;
             /*
-            if cache.getNumEntries (n) returns a number bigger than 0, we
+            if getNumEntries (n) returns a number bigger than 0, we
             remember this principal name int the 'existingNames' set
             */
             if (n > 0) {
                 existingNames.add(name);
                 if (n <= MAX_PATHS_SIZE) {
                     cache.load(store, name);
+                } else {
+                    long expectedSize = (ne.isExact) ? n : Long.MAX_VALUE;
+                    cache.init(name, expectedSize);
                 }
             }
             /*

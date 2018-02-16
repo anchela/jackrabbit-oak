@@ -48,7 +48,7 @@ interface PermissionStore {
     @Nonnull
     PrincipalPermissionEntries load(@Nonnull String principalName);
 
-    long getNumEntries(@Nonnull String principalName, long max);
+    NumEntries getNumEntries(@Nonnull String principalName, long max);
 
     void flush(@Nonnull Root root);
 
