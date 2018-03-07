@@ -106,6 +106,7 @@ public class MountPermissionProvider extends PermissionProviderImpl {
         @Override
         public NumEntries getNumEntries(@Nonnull String principalName, long max) {
             long num = 0;
+            // TODO: properly evaluate if numer is exact
             for (PermissionStoreImpl store : stores) {
                 NumEntries ne = store.getNumEntries(principalName, max);
                 num = LongUtils.safeAdd(num, ne.size);

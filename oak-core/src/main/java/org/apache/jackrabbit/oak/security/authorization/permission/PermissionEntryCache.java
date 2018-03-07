@@ -24,6 +24,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
+import org.apache.jackrabbit.oak.api.Tree;
+import org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +43,8 @@ class PermissionEntryCache {
     private final Map<String, PrincipalPermissionEntries> entries = new HashMap<String, PrincipalPermissionEntries>();
 
     @Nonnull
-    private PrincipalPermissionEntries getFullyLoadedEntries(@Nonnull PermissionStore store,
-                                                             @Nonnull String principalName) {
+    PrincipalPermissionEntries getFullyLoadedEntries(@Nonnull PermissionStore store,
+                                                     @Nonnull String principalName) {
         PrincipalPermissionEntries ppe = entries.get(principalName);
         if (ppe == null || !ppe.isFullyLoaded()) {
             ppe = store.load(principalName);
@@ -54,26 +56,6 @@ class PermissionEntryCache {
     void init(@Nonnull String principalName, long expectedSize) {
         if (!entries.containsKey(principalName)) {
             entries.put(principalName, new PrincipalPermissionEntries(expectedSize));
-        }
-    }
-
-    void load(@Nonnull PermissionStore store,
-              @Nonnull String principalName) {
-        PrincipalPermissionEntries ppe = getFullyLoadedEntries(store, principalName);
-    }
-
-    void load(@Nonnull PermissionStore store,
-              @Nonnull String principalName,
-              @Nonnull Map<String, Collection<PermissionEntry>> pathEntryMap) {
-        PrincipalPermissionEntries ppe = getFullyLoadedEntries(store, principalName);
-        for (Map.Entry<String, Collection<PermissionEntry>> e : ppe.getEntries().entrySet()) {
-            Collection<PermissionEntry> pathEntries = pathEntryMap.get(e.getKey());
-            if (pathEntries == null) {
-                pathEntries = new TreeSet<PermissionEntry>(e.getValue());
-                pathEntryMap.put(e.getKey(), pathEntries);
-            } else {
-                pathEntries.addAll(e.getValue());
-            }
         }
     }
 
