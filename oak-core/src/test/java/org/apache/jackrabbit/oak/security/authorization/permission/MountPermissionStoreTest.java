@@ -116,14 +116,14 @@ public class MountPermissionStoreTest extends AbstractSecurityTest {
 
     @Test
     public void testLoadByAccessControlledPath() {
-        Collection<PermissionEntry> entries = permissionStore.load(null, EveryonePrincipal.NAME, CONTENT_PATH);
+        Collection<PermissionEntry> entries = permissionStore.load(EveryonePrincipal.NAME, CONTENT_PATH);
         assertNotNull(entries);
         assertEquals(1, entries.size());
     }
 
     @Test
     public void testLoadByNonAccessControlledPath() {
-        Collection<PermissionEntry> entries = permissionStore.load(null, EveryonePrincipal.NAME, TEST_PATH);
+        Collection<PermissionEntry> entries = permissionStore.load(EveryonePrincipal.NAME, TEST_PATH);
         assertNull(entries);
     }
 

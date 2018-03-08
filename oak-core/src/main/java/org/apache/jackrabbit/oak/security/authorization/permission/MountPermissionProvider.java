@@ -25,7 +25,6 @@ import java.util.Set;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.commons.LongUtils;
@@ -81,10 +80,10 @@ public class MountPermissionProvider extends PermissionProviderImpl {
 
         @CheckForNull
         @Override
-        public Collection<PermissionEntry> load(@Nullable Collection<PermissionEntry> entries, @Nonnull String principalName,
-                @Nonnull String path) {
+        public Collection<PermissionEntry> load(@Nonnull String principalName,
+                                                @Nonnull String path) {
             for (PermissionStoreImpl store : stores) {
-                Collection<PermissionEntry> col = store.load(null, principalName, path);
+                Collection<PermissionEntry> col = store.load(principalName, path);
                 if (col != null && !col.isEmpty()) {
                     return col;
                 }

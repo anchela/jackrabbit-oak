@@ -77,19 +77,20 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
     //----------------------------------------------------< PermissionStore >---
     @Override
     @CheckForNull
-    public Collection<PermissionEntry> load(@Nullable Collection<PermissionEntry> entries, @Nonnull String principalName, @Nonnull String path) {
+    public Collection<PermissionEntry> load(@Nonnull String principalName, @Nonnull String path) {
         Tree principalRoot = getPrincipalRoot(principalName);
+        Collection<PermissionEntry> entries = null;
         if (principalRoot != null) {
             String name = PermissionUtil.getEntryName(path);
             if (principalRoot.hasChild(name)) {
                 Tree child = principalRoot.getChild(name);
                 if (PermissionUtil.checkACLPath(child, path)) {
-                    entries = loadPermissionEntries(path, entries, child);
+                    entries = loadPermissionEntries(path, child);
                 } else {
                     // check for child node
                     for (Tree node : child.getChildren()) {
                         if (PermissionUtil.checkACLPath(node, path)) {
-                            entries = loadPermissionEntries(path, entries, node);
+                            entries = loadPermissionEntries(path, node);
                         }
                     }
                 }
@@ -171,13 +172,10 @@ class PermissionStoreImpl implements PermissionStore, PermissionConstants {
 
     @CheckForNull
     private Collection<PermissionEntry> loadPermissionEntries(@Nonnull String path,
-                                                              @Nullable Collection<PermissionEntry> ret,
                                                               @Nonnull Tree tree) {
+        Collection<PermissionEntry> ret = new TreeSet<>();
         for (Tree ace : tree.getChildren()) {
             if (ace.getName().charAt(0) != 'c') {
-                if (ret == null) {
-                    ret = new TreeSet<PermissionEntry>();
-                }
                 ret.add(createPermissionEntry(path, ace));
             }
         }

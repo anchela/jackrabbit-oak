@@ -19,7 +19,6 @@ package org.apache.jackrabbit.oak.security.authorization.permission;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
@@ -145,7 +144,7 @@ public class PermissionEntryProviderImplTest {
 
         @Override
         public Collection<PermissionEntry> load(
-                Collection<PermissionEntry> entries, @Nonnull String principalName,
+                @Nonnull String principalName,
                 @Nonnull String path) {
             return null;
         }

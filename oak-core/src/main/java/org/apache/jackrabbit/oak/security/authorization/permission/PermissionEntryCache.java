@@ -20,12 +20,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
-import org.apache.jackrabbit.oak.api.Tree;
-import org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +36,7 @@ class PermissionEntryCache {
 
     private static final Logger log = LoggerFactory.getLogger(PermissionEntryCache.class);
 
-    private final Map<String, PrincipalPermissionEntries> entries = new HashMap();
+    private final Map<String, PrincipalPermissionEntries> entries = new HashMap<>();
 
     @Nonnull
     PrincipalPermissionEntries getFullyLoadedEntries(@Nonnull PermissionStore store,
@@ -73,7 +69,7 @@ class PermissionEntryCache {
                 }
             } else {
                 // read entries for path from store
-                pes = store.load(null, principalName, path);
+                pes = store.load(principalName, path);
                 if (pes == null) {
                     // nothing to add to the result collection 'ret'.
                     // nevertheless, remember the absence of any permission entries
@@ -87,9 +83,5 @@ class PermissionEntryCache {
         } else {
             log.error("Failed to load entries for principal '%s' at path %s", principalName, path);
         }
-    }
-
-    void flush(@Nonnull Set<String> principalNames) {
-        entries.keySet().removeAll(principalNames);
     }
 }
