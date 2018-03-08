@@ -39,13 +39,16 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
 
     private static final long DEFAULT_SIZE = 250;
 
-    private static final long MAX_PATHS_SIZE = 10;
 
     /**
      * The set of principal names for which this {@code PermissionEntryProvider}
      * has been created.
      */
     private final Set<String> principalNames;
+
+    private final PermissionStore store;
+
+    private final long maxSize;
 
     /**
      * The set of principal names for which the store contains any permission
@@ -54,11 +57,7 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
      * this set is empty and thus no permission entries exist for the specified
      * set of principal.
      */
-    private final Set<String> existingNames = new HashSet();
-
-    private final PermissionStore store;
-
-    private final long maxSize;
+    private Set<String> existingNames;
 
     private PermissionCache permissionCache;
 
@@ -71,44 +70,8 @@ class PermissionEntryProviderImpl implements PermissionEntryProvider {
 
     private void init() {
         PermissionCacheBuilder builder = new PermissionCacheBuilder(store);
-
-        long cnt = 0;
-        existingNames.clear();
-        for (String name : principalNames) {
-            NumEntries ne = store.getNumEntries(name, maxSize);
-            long n = ne.size;
-            /*
-            if getNumEntries (n) returns a number bigger than 0, we
-            remember this principal name int the 'existingNames' set
-            */
-            if (n > 0) {
-                existingNames.add(name);
-                if (n <= MAX_PATHS_SIZE) {
-                    builder.load(name);
-                } else {
-                    long expectedSize = (ne.isExact) ? n : Long.MAX_VALUE;
-                    builder.init(name, expectedSize);
-                }
-            }
-            /*
-            Estimate the total number of access controlled paths (cnt) defined
-            for the given set of principals in order to be able to determine if
-            the pathEntryMap should be loaded upfront.
-            Note however that cache.getNumEntries (n) may return Long.MAX_VALUE
-            if the underlying implementation does not know the exact value, and
-            the child node count is higher than maxSize (see OAK-2465).
-            */                        
-            if (cnt < Long.MAX_VALUE) {
-                if (Long.MAX_VALUE == n) {
-                    cnt = Long.MAX_VALUE;
-                } else {
-                    cnt = LongUtils.safeAdd(cnt, n);
-                }
-            }
-        }
-
-        boolean usePathEntryMap = (cnt > 0 && cnt < maxSize);
-        permissionCache = builder.build(existingNames, usePathEntryMap);
+        existingNames = builder.init(principalNames, maxSize);
+        permissionCache = builder.build();
     }
 
     //--------------------------------------------< PermissionEntryProvider >---

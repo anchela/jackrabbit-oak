@@ -123,12 +123,6 @@ public class PermissionEntryProviderImplTest {
         Set<String> existingNames = getExistingNames(provider);
 
         assertTrue(existingNames.isEmpty());
-
-        Field f = provider.getClass().getDeclaredField("permissionCache");
-        f.setAccessible(true);
-        Object cache = f.get(provider);
-        assertNotNull(cache);
-        assertEquals("org.apache.jackrabbit.oak.security.authorization.permission.PermissionCacheBuilder$EmptyCache", cache.getClass().getName());
     }
 
     /**

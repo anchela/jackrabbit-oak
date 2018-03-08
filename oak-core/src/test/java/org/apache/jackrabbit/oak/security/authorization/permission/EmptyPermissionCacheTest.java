@@ -16,45 +16,37 @@
  */
 package org.apache.jackrabbit.oak.security.authorization.permission;
 
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableSet;
+import org.apache.jackrabbit.oak.api.Tree;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final class NumEntries {
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
 
-    static final NumEntries ZERO = new NumEntries(0, true);
+public class EmptyPermissionCacheTest {
 
-    final long size;
-    final boolean isExact;
+    private PermissionCache empty;
 
-    private NumEntries(long size, boolean isExact) {
-        this.size = size;
-        this.isExact = isExact;
+    @Before
+    public void before() {
+        PermissionCacheBuilder builder = new PermissionCacheBuilder(Mockito.mock(PermissionStore.class));
+        builder.init(ImmutableSet.of(), Long.MAX_VALUE);
+        empty = builder.build();
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(size, isExact);
+    @Test
+    public void testGetEntriesByPath() {
+        assertTrue(empty.getEntries("/path").isEmpty());
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof NumEntries) {
-            NumEntries other = (NumEntries) obj;
-            return size == other.size && isExact == other.isExact;
-        } else {
-            return false;
-        }
-    }
-
-    static NumEntries valueOf(long size, boolean isExact) {
-        if (size == 0 && isExact) {
-            return ZERO;
-        } else {
-            return new NumEntries(size, isExact);
-        }
+    @Test
+    public void testGetEntriesByTree() {
+        Tree tree = Mockito.mock(Tree.class);
+        when(tree.getPath()).thenReturn("/path");
+        assertTrue(empty.getEntries(tree).isEmpty());
     }
 }

@@ -40,7 +40,7 @@ class PermissionEntryCache {
 
     private static final Logger log = LoggerFactory.getLogger(PermissionEntryCache.class);
 
-    private final Map<String, PrincipalPermissionEntries> entries = new HashMap<String, PrincipalPermissionEntries>();
+    private final Map<String, PrincipalPermissionEntries> entries = new HashMap();
 
     @Nonnull
     PrincipalPermissionEntries getFullyLoadedEntries(@Nonnull PermissionStore store,

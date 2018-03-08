@@ -19,6 +19,7 @@ package org.apache.jackrabbit.oak.security.authorization.permission;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -26,31 +27,75 @@ import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
 import org.apache.jackrabbit.oak.api.Tree;
+import org.apache.jackrabbit.oak.commons.LongUtils;
 import org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.google.common.base.Preconditions.checkState;
+
 final class PermissionCacheBuilder {
+
+    private static final long MAX_PATHS_SIZE = 10;
 
     private final PermissionStore store;
     private final PermissionEntryCache peCache;
+
+    private Set<String> existingNames;
+    private boolean usePathEntryMap;
+
+    private boolean initialized = false;
 
     PermissionCacheBuilder(@Nonnull PermissionStore store) {
         this.store = store;
         this.peCache = new PermissionEntryCache();
     }
 
-    void init(@Nonnull String principalName, long expectedSize) {
-        peCache.init(principalName, expectedSize);
+    Set<String> init(@Nonnull Set<String> principalNames, long maxSize) {
+        existingNames = new HashSet<>();
+        long cnt = 0;
+        for (String name : principalNames) {
+            NumEntries ne = store.getNumEntries(name, maxSize);
+            long n = ne.size;
+            /*
+            if getNumEntries (n) returns a number bigger than 0, we
+            remember this principal name int the 'existingNames' set
+            */
+            if (n > 0) {
+                existingNames.add(name);
+                if (n <= MAX_PATHS_SIZE) {
+                    peCache.getFullyLoadedEntries(store, name);
+                } else {
+                    long expectedSize = (ne.isExact) ? n : Long.MAX_VALUE;
+                    peCache.init(name, expectedSize);
+                }
+            }
+            /*
+            Estimate the total number of access controlled paths (cnt) defined
+            for the given set of principals in order to be able to determine if
+            the pathEntryMap should be loaded upfront.
+            Note however that cache.getNumEntries (n) may return Long.MAX_VALUE
+            if the underlying implementation does not know the exact value, and
+            the child node count is higher than maxSize (see OAK-2465).
+            */
+            if (cnt < Long.MAX_VALUE) {
+                if (Long.MAX_VALUE == n) {
+                    cnt = Long.MAX_VALUE;
+                } else {
+                    cnt = LongUtils.safeAdd(cnt, n);
+                }
+            }
+        }
+
+        usePathEntryMap = (cnt > 0 && cnt < maxSize);
+        initialized = true;
+        return existingNames;
     }
 
-    void load(@Nonnull String principalName) {
-        peCache.getFullyLoadedEntries(store, principalName);
-    }
-
-    PermissionCache build(@Nonnull Set<String> principalNames, boolean usePathEntryMap) {
-        if (principalNames.isEmpty()) {
+    PermissionCache build() {
+        checkState(initialized);
+        if (existingNames.isEmpty()) {
             return EmptyCache.INSTANCE;
         }
         if (usePathEntryMap) {
@@ -58,21 +103,26 @@ final class PermissionCacheBuilder {
             // so we can load all permission entries for all principals having
             // any entries right away into the pathEntryMap
             Map<String, Collection<PermissionEntry>> pathEntryMap = new HashMap<>();
-            for (String name : principalNames) {
+            for (String name : existingNames) {
                 PrincipalPermissionEntries ppe = peCache.getFullyLoadedEntries(store, name);
                 for (Map.Entry<String, Collection<PermissionEntry>> e : ppe.getEntries().entrySet()) {
-                    Collection<PermissionEntry> pathEntries = pathEntryMap.get(e.getKey());
+                    String path = e.getKey();
+                    Collection<PermissionEntry> pathEntries = pathEntryMap.get(path);
                     if (pathEntries == null) {
                         pathEntries = new TreeSet(e.getValue());
-                        pathEntryMap.put(e.getKey(), pathEntries);
+                        pathEntryMap.put(path, pathEntries);
                     } else {
                         pathEntries.addAll(e.getValue());
                     }
                 }
             }
-            return new PathEntryMapCache(pathEntryMap);
+            if (pathEntryMap.isEmpty()) {
+                return EmptyCache.INSTANCE;
+            } else {
+                return new PathEntryMapCache(pathEntryMap);
+            }
         } else {
-            return new DefaultPermissionCache(store, peCache, principalNames);
+            return new DefaultPermissionCache(store, peCache, existingNames);
         }
 
     }

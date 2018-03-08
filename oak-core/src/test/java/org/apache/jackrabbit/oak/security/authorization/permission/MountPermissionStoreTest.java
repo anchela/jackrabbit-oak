@@ -46,6 +46,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.when;
 
 public class MountPermissionStoreTest extends AbstractSecurityTest {
@@ -146,14 +148,28 @@ public class MountPermissionStoreTest extends AbstractSecurityTest {
         assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10).size);
     }
 
+    @Test
+    public void testGetNumEntriesMaxReachedExact() throws Exception {
+        PermissionStoreImpl mock = insertMockStore();
+        when(mock.getNumEntries(anyString(), anyLong())).thenReturn(NumEntries.valueOf(2, true));
+
+        NumEntries ne = permissionStore.getNumEntries(EveryonePrincipal.NAME, 10);
+        assertEquals(NumEntries.valueOf(4, true), ne);
+
+        ne = permissionStore.getNumEntries(EveryonePrincipal.NAME, 2);
+        assertEquals(NumEntries.valueOf(4, true), ne);
+    }
 
     @Test
-    public void testGetNumEntriesMaxReached() throws Exception {
+    public void testGetNumEntriesMaxReachedNotExact() throws Exception {
         PermissionStoreImpl mock = insertMockStore();
-        when(mock.getNumEntries(EveryonePrincipal.NAME, Long.valueOf(10))).thenReturn(NumEntries.valueOf(2, true));
+        when(mock.getNumEntries(anyString(), anyLong())).thenReturn(NumEntries.valueOf(2, false));
 
-        assertEquals(4, permissionStore.getNumEntries(EveryonePrincipal.NAME, 10).size);
-        assertEquals(2, permissionStore.getNumEntries(EveryonePrincipal.NAME, 2).size);
+        NumEntries ne = permissionStore.getNumEntries(EveryonePrincipal.NAME, 10);
+        assertEquals(NumEntries.valueOf(4, false), ne);
+
+        ne = permissionStore.getNumEntries(EveryonePrincipal.NAME, 2);
+        assertEquals(NumEntries.valueOf(2, false), ne);
     }
 
     @Test
@@ -176,7 +192,7 @@ public class MountPermissionStoreTest extends AbstractSecurityTest {
 
         PermissionStoreImpl mock = Mockito.mock(PermissionStoreImpl.class);
         List<PermissionStoreImpl> stores = (List<PermissionStoreImpl>) f.get(permissionStore);
-        stores.add(mock);
+        stores.add(0, mock);
         return mock;
     }
 }
