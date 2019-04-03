@@ -59,7 +59,7 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
     private final MgrProvider mgrProvider;
     private final TreeTypeProvider typeProvider;
 
-    private final PrivilegeBits acMgtBits;
+    private final PrivilegeBits modAcBits;
 
     private Root immutableRoot;
     private RepositoryPermissionImpl repositoryPermission;
@@ -68,15 +68,16 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
     PrincipalBasedPermissionProvider(@NotNull Root root,
                                      @NotNull String workspaceName,
                                      @NotNull Iterable<String> principalPaths,
-                                     @NotNull MgrProvider mgrProvider) {
+                                     @NotNull PrincipalBasedAuthorizationConfiguration authorizationConfiguration) {
         this.root = root;
         this.workspaceName = workspaceName;
         this.principalPaths = principalPaths;
-        this.mgrProvider = mgrProvider;
-        typeProvider = new TreeTypeProvider(mgrProvider.getContext());
-        acMgtBits = mgrProvider.getPrivilegeBitsProvider().getBits(PrivilegeConstants.JCR_READ_ACCESS_CONTROL, PrivilegeConstants.JCR_MODIFY_ACCESS_CONTROL);
 
-        immutableRoot = mgrProvider.getRootProvider().createReadOnlyRoot(root);
+        immutableRoot = authorizationConfiguration.getRootProvider().createReadOnlyRoot(root);
+        mgrProvider = new MgrProviderImpl(authorizationConfiguration, immutableRoot, NamePathMapper.DEFAULT);
+        typeProvider = new TreeTypeProvider(mgrProvider.getContext());
+        modAcBits = mgrProvider.getPrivilegeBitsProvider().getBits(PrivilegeConstants.JCR_MODIFY_ACCESS_CONTROL);
+
         entryCache = new EntryCache(immutableRoot, principalPaths, mgrProvider.getRestrictionProvider());
     }
 
@@ -85,6 +86,8 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
     @Override
     public void refresh() {
         immutableRoot = mgrProvider.getRootProvider().createReadOnlyRoot(root);
+        mgrProvider.reset(immutableRoot, NamePathMapper.DEFAULT);
+
         entryCache = new EntryCache(immutableRoot, principalPaths, mgrProvider.getRestrictionProvider());
         if (repositoryPermission != null) {
             repositoryPermission.refresh();
@@ -271,7 +274,7 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
     }
 
     private boolean isGrantedOnEffective(@NotNull Tree tree, long permission) {
-        long toTest = permission & (Permissions.READ_ACCESS_CONTROL|Permissions.MODIFY_ACCESS_CONTROL);
+        long toTest = permission & Permissions.MODIFY_ACCESS_CONTROL;
         if (Permissions.NO_PERMISSION == toTest) {
             return Boolean.TRUE;
         }
@@ -279,6 +282,8 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
         String effectivePath = getEffectivePath(tree);
         if (effectivePath == null) {
             return Boolean.TRUE;
+        } else if (REPOSITORY_PERMISSION_PATH.equals(effectivePath)) {
+            return getRepositoryPermission().isGranted(toTest);
         } else {
             Tree effectiveTree = immutableRoot.getTree(effectivePath);
             return isGranted(effectiveTree, null, toTest);
@@ -330,7 +335,7 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
 
     /**
      * In case the tree of type access-control represents a principal-based entry or a restriction defined below,
-     * read-access-control and modify-access-control is only granted if it is granted on the effective target path.
+     * modify-access-control is only granted if it is also granted on the effective target path.
      * Calculate if those permissions are granted and if not subtract them later from the final result.
      *
      * @param tree A read-only tree of type ACCESS_CONTROL.
@@ -341,10 +346,10 @@ class PrincipalBasedPermissionProvider implements AggregatedPermissionProvider, 
     @NotNull
     PrivilegeBits getBitsToSubtract(@NotNull Tree tree) {
         String effectivePath = getEffectivePath(tree);
-        if (effectivePath != null) {
-            return acMgtBits.modifiable().diff(getGrantedPrivilegeBits(effectivePath, EntryPredicate.create(effectivePath)));
-        } else {
+        if (effectivePath == null) {
             return PrivilegeBits.EMPTY;
+        } else {
+            return modAcBits.modifiable().diff(getGrantedPrivilegeBits(effectivePath, EntryPredicate.create(effectivePath)));
         }
     }
 

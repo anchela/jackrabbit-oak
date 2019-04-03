@@ -28,6 +28,7 @@ import org.apache.jackrabbit.oak.spi.security.privilege.PrivilegeConstants;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.jcr.AccessDeniedException;
@@ -36,6 +37,7 @@ import javax.jcr.SimpleCredentials;
 import javax.jcr.security.AccessControlPolicy;
 import java.security.Principal;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -44,12 +46,14 @@ import static org.junit.Assert.assertTrue;
  * Tests for PrincipalBasedAccessControlManager where the editing session (based on a regular user with default
  * permission evaluation) lacks permissions to read/modify access control on the target system-principal.
  */
-public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrincipalBasedTest implements PrivilegeConstants {
+public class AccessControlManagerLimitedUserTest extends AbstractPrincipalBasedTest implements PrivilegeConstants {
 
-    private Principal systemPrincipal;
-    private String systemPrincipalPath;
-    private Root testRoot;
-    private JackrabbitAccessControlManager testAcMgr;
+    Principal systemPrincipal;
+    String systemPrincipalPath;
+
+    Principal testPrincipal;
+    Root testRoot;
+    JackrabbitAccessControlManager testAcMgr;
 
     @Before
     public void before() throws Exception {
@@ -59,20 +63,44 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
         systemPrincipalPath = systemUser.getPath();
         systemPrincipal = getTestSystemUser().getPrincipal();
 
-        User testUser = getTestUser();
+        testPrincipal = createTestPrincipal();
+
         setupContentTrees(TEST_OAK_PATH);
 
         // grant test-user full read access (but not read-access control!)
-        addDefaultEntry(PathUtils.ROOT_PATH, testUser.getPrincipal(), JCR_READ);
+        grant(testPrincipal, PathUtils.ROOT_PATH, JCR_READ);
 
         // trigger creation of principal policy with testPrincipal with 2 random entries
-        setupPrincipalBasedAccessControl(systemPrincipal, testContentJcrPath, JCR_NODE_TYPE_MANAGEMENT);
-        setupPrincipalBasedAccessControl(systemPrincipal, null, JCR_NAMESPACE_MANAGEMENT);
-
+        PrincipalPolicyImpl policy = setupPrincipalBasedAccessControl(systemPrincipal, testContentJcrPath, JCR_NODE_TYPE_MANAGEMENT);
+        addPrincipalBasedEntry(policy, null, JCR_NAMESPACE_MANAGEMENT);
         root.commit();
 
-        testRoot = login(new SimpleCredentials(testUser.getID(), testUser.getID().toCharArray())).getLatestRoot();
+        testRoot = createTestRoot();
         testAcMgr = createAccessControlManager(testRoot);
+    }
+
+    @Override
+    public void after() throws Exception {
+        try {
+            if (testRoot != null) {
+                testRoot.getContentSession().close();
+            }
+        } finally {
+            super.after();
+        }
+    }
+
+    Principal createTestPrincipal() throws Exception {
+        return getTestUser().getPrincipal();
+    }
+
+    Root createTestRoot() throws Exception {
+        User testUser = getTestUser();
+        return login(new SimpleCredentials(testUser.getID(), testUser.getID().toCharArray())).getLatestRoot();
+    }
+
+    void grant(@NotNull Principal principal, @Nullable String path, @NotNull String... privNames) throws Exception {
+        addDefaultEntry(path, principal, privNames);
     }
 
     private static void assertEmptyPolicies(@NotNull AccessControlPolicy[] policies) {
@@ -124,13 +152,13 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
     @Test(expected = AccessDeniedException.class)
     public void testGetEffectiveByPathReadAccessControlOnPrincipal() throws Exception {
         // grant testuser read-access control on testPrincipal-path but NOT on effective paths null and /oak:content
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
         // since default permission evaluation is in charge for 'testUser' -> access to full principal policy is now
         // granted
-        AccessControlPolicy[] effective = testAcMgr.getEffectivePolicies((String)testJcrPath);
+        AccessControlPolicy[] effective = testAcMgr.getEffectivePolicies((String) testJcrPath);
         assertEquals(1, effective.length);
         assertTrue(effective[0] instanceof PrincipalPolicyImpl);
     }
@@ -138,9 +166,9 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
     @Test
     public void testGetEffectiveByPathMissingReadAccessControlOnPrincipal() throws Exception {
         // test-user: granted read-access-control on effective null-path
-        addDefaultEntry(null, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, null, JCR_READ_ACCESS_CONTROL);
         // test-user: granted read-access-control on effective /oak:content
-        addDefaultEntry(PathUtils.getAncestorPath(testJcrPath, 3), getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, PathUtils.getAncestorPath(testJcrPath, 3), JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
@@ -166,27 +194,52 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
     @Test
     public void testGetPoliciesByPrincipal() throws Exception {
         // grant testuser read-access control on testPrincipal-path but NOT on effective paths null and /oak:content
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
+        // no read-ac permission on effective paths
+        assertPolicies(testAcMgr.getPolicies(systemPrincipal), PrincipalPolicyImpl.class, 1, 2);
+
+        // grant testuser read-access control on /oak:content
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+        assertPolicies(testAcMgr.getPolicies(systemPrincipal), PrincipalPolicyImpl.class, 1, 2);
+
+        // additionally grant testuser read-access control on null
+        grant(testPrincipal, null, JCR_READ_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
         assertPolicies(testAcMgr.getPolicies(systemPrincipal), PrincipalPolicyImpl.class, 1, 2);
     }
 
     @Test
     public void testGetEffectiveByPrincipal() throws Exception {
         // grant testuser read-access control on testPrincipal-path but NOT on effective paths null and /oak:content
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
-        // while read-access-control is granted for the principalpolicy itself by the default permission evalution
+        // read-access-control is only granted for the principalpolicy itself
+        assertPolicies(testAcMgr.getEffectivePolicies(ImmutableSet.of(systemPrincipal)), ImmutableACL.class, 1, 2);
+
+        // grant testuser read-access control on /oak:content
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+        assertPolicies(testAcMgr.getEffectivePolicies(ImmutableSet.of(systemPrincipal)), ImmutableACL.class, 1, 2);
+
+        // additionally grant testuser read-access control on null
+        grant(testPrincipal, null, JCR_READ_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
         assertPolicies(testAcMgr.getEffectivePolicies(ImmutableSet.of(systemPrincipal)), ImmutableACL.class, 1, 2);
     }
 
     @Test(expected = AccessDeniedException.class)
     public void testSetPolicyMissingModifyAccessControlOnPrincipal() throws Exception {
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
@@ -196,9 +249,9 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
         testAcMgr.setPolicy(policy.getPath(), policy);
     }
 
-    @Test
-    public void testSetPolicy() throws Exception {
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+    @Test(expected = AccessDeniedException.class)
+    public void testSetPolicyMissingModifyAccessControlOnEffectivePath() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
@@ -210,8 +263,38 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
     }
 
     @Test(expected = AccessDeniedException.class)
+    public void testSetPolicyMissingModifyAccessControlOnEffectivePath2() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+
+        PrincipalPolicyImpl policy = (PrincipalPolicyImpl) testAcMgr.getPolicies(systemPrincipal)[0];
+        policy.addEntry(null, privilegesFromNames(JCR_WORKSPACE_MANAGEMENT));
+        policy.addEntry(testJcrPath, privilegesFromNames(JCR_READ));
+
+        testAcMgr.setPolicy(policy.getPath(), policy);
+    }
+
+    @Test
+    public void testSetPolicy() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, null, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+
+        PrincipalPolicyImpl policy = (PrincipalPolicyImpl) testAcMgr.getPolicies(systemPrincipal)[0];
+        policy.addEntry(null, privilegesFromNames(JCR_WORKSPACE_MANAGEMENT));
+        policy.addEntry(testJcrPath, privilegesFromNames(JCR_READ));
+
+        testAcMgr.setPolicy(policy.getPath(), policy);
+        testRoot.commit();
+    }
+
+    @Test(expected = AccessDeniedException.class)
     public void testRemovePolicyMissingModifyAccessControlOnPrincipal() throws Exception {
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL);
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
@@ -220,12 +303,56 @@ public class PrincipalBasedAccessControlManagerLimitedTest extends AbstractPrinc
     }
 
     @Test
-    public void testRemovePolicy() throws Exception {
-        addDefaultEntry(systemPrincipalPath, getTestUser().getPrincipal(), JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+    public void testRemovePolicyMissingModifyAccessControlOnEffectivePath() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
         root.commit();
         testRoot.refresh();
 
         PrincipalPolicyImpl policy = (PrincipalPolicyImpl) testAcMgr.getPolicies(systemPrincipal)[0];
         testAcMgr.removePolicy(policy.getPath(), policy);
+        testRoot.commit();
     }
+
+    @Test
+    public void testRemovePolicyMissingModifyAccessControlOnEffectivePath2() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+
+        PrincipalPolicyImpl policy = (PrincipalPolicyImpl) testAcMgr.getPolicies(systemPrincipal)[0];
+        testAcMgr.removePolicy(policy.getPath(), policy);
+        testRoot.commit();
+    }
+
+    @Test
+    public void testRemovePolicy() throws Exception {
+        grant(testPrincipal, systemPrincipalPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, null, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        grant(testPrincipal, testContentJcrPath, JCR_READ_ACCESS_CONTROL, JCR_MODIFY_ACCESS_CONTROL);
+        root.commit();
+        testRoot.refresh();
+
+        PrincipalPolicyImpl policy = (PrincipalPolicyImpl) testAcMgr.getPolicies(systemPrincipal)[0];
+        testAcMgr.removePolicy(policy.getPath(), policy);
+        testRoot.commit();
+    }
+
+    @Ignore
+    @Test
+    public void testHasPrivilegeSystemUser() throws Exception {
+        // todo
+        testAcMgr.hasPrivileges(testContentJcrPath, ImmutableSet.of(systemPrincipal), privilegesFromNames(JCR_NODE_TYPE_MANAGEMENT));
+        testAcMgr.hasPrivileges(null, ImmutableSet.of(systemPrincipal), privilegesFromNames(JCR_NAMESPACE_MANAGEMENT));
+    }
+
+    @Ignore
+    @Test
+    public void testGetPrivilegeSystemUser() throws Exception {
+        // todo
+        assertArrayEquals(privilegesFromNames(JCR_NODE_TYPE_MANAGEMENT), testAcMgr.getPrivileges(testContentJcrPath, ImmutableSet.of(systemPrincipal)));
+        assertArrayEquals(privilegesFromNames(JCR_NAMESPACE_MANAGEMENT), testAcMgr.getPrivileges(null, ImmutableSet.of(systemPrincipal)));
+    }
+
+    // TODO: tests operating directly on Oak API.
 }

@@ -27,6 +27,7 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.commons.PathUtils;
+import org.apache.jackrabbit.oak.namepath.NamePathMapper;
 import org.apache.jackrabbit.oak.plugins.memory.PropertyStates;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
@@ -77,20 +78,29 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
 
     private NodeState mockNodeState = mock(NodeState.class);
 
+    @Override
+    protected NamePathMapper getNamePathMapper() {
+        return NamePathMapper.DEFAULT;
+    }
+
+    @NotNull
     private Validator createRootValidator(@NotNull NodeState rootState) {
         return createRootValidator(rootState, getMgrProvider(root));
     }
 
+    @NotNull
     private Validator createRootValidator(@NotNull NodeState rootState, @NotNull MgrProvider mgrProvider) {
-        return new PrincipalPolicyValidatorProvider(mgrProvider).getRootValidator(rootState, rootState, new CommitInfo("anyId", null));
+        return new PrincipalPolicyValidatorProvider(mgrProvider, adminSession.getAuthInfo().getPrincipals(), adminSession.getWorkspaceName()).getRootValidator(rootState, rootState, new CommitInfo("anyId", null));
     }
 
+    @NotNull
     private Validator getValidatorAtNodeTypeTree(@NotNull NodeState nodeState, @NotNull String parentName) throws Exception {
         Validator v = createRootValidator(nodeState);
         when(nodeState.getProperty(JcrConstants.JCR_PRIMARYTYPE)).thenReturn(createPrimaryTypeProperty(JcrConstants.NT_BASE));
         return v.childNodeAdded(parentName, nodeState).childNodeAdded(NodeTypeConstants.JCR_NODE_TYPES, nodeState);
     }
 
+    @NotNull
     private Tree createPolicyEntryTree(@NotNull Set<String> privNames) throws Exception {
         Tree t = root.getTree(getNamePathMapper().getOakPath(getTestSystemUser().getPath()));
         TreeUtil.addMixin(t, MIX_REP_PRINCIPAL_BASED_MIXIN, root.getTree(NodeTypeConstants.NODE_TYPES_PATH), "uid");
@@ -102,6 +112,16 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
         return entry;
     }
 
+    @NotNull
+    private MgrProvider mockMgrProvider() {
+        MgrProvider mp = mock(MgrProvider.class);
+        when(mp.getRootProvider()).thenReturn(getRootProvider());
+        when(mp.getTreeProvider()).thenReturn(getTreeProvider());
+        when(mp.getSecurityProvider()).thenReturn(getSecurityProvider());
+        return mp;
+    }
+
+    @NotNull
     private static PropertyState createPrimaryTypeProperty(@NotNull String ntName) {
         return MockUtility.createPrimaryTypeProperty(ntName);
     }
@@ -402,9 +422,7 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
         RestrictionProvider throwingRp = mock(RestrictionProvider.class);
         doThrow(new RepositoryException()).when(throwingRp).validateRestrictions(anyString(), any(Tree.class));
 
-        MgrProvider mgrProvider = mock(MgrProvider.class);
-        when(mgrProvider.getTreeProvider()).thenReturn(getTreeProvider());
-        when(mgrProvider.getRootProvider()).thenReturn(getRootProvider());
+        MgrProvider mgrProvider = mockMgrProvider();
         when(mgrProvider.getContext()).thenReturn(getConfig(AuthorizationConfiguration.class).getContext());
         when(mgrProvider.getRestrictionProvider()).thenReturn(throwingRp);
 
@@ -466,10 +484,7 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
     @Test
     public void testAddEntryPrivilegeLookupThrowsRepositoryException() throws Exception {
         PrivilegeManager privMgr = when(mock(PrivilegeManager.class).getPrivilege(anyString())).thenThrow(new RepositoryException()).getMock();
-        MgrProvider mp = mock(MgrProvider.class);
-        when(mp.getPrivilegeManager()).thenReturn(privMgr);
-        when(mp.getRootProvider()).thenReturn(getRootProvider());
-        when(mp.getTreeProvider()).thenReturn(getTreeProvider());
+        MgrProvider mp = when(mockMgrProvider().getPrivilegeManager()).thenReturn(privMgr).getMock();
 
         NodeState policyState =  mockNodeState(NT_REP_PRINCIPAL_POLICY);
         when(policyState.getProperty(REP_PRINCIPAL_NAME)).thenReturn(PropertyStates.createProperty(REP_PRINCIPAL_NAME, "name"));
@@ -489,9 +504,39 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
             when(entry.getNames(REP_PRIVILEGES)).thenReturn(ImmutableList.of("privName"));
 
             v.childNodeChanged("entryName", entry, entry);
+            fail("CommitFailedException type OAK code 13 expected.");
         } catch (CommitFailedException e) {
             assertEquals(CommitFailedException.OAK, e.getType());
             assertEquals(13, e.getCode());
+        }
+    }
+
+    @Test
+    public void testAddEntryMissingEffectivePath() throws Exception {
+        MgrProvider mp = when(mockMgrProvider().getPrivilegeManager()).thenReturn(getPrivilegeManager(root)).getMock();
+
+        NodeState policyState =  mockNodeState(NT_REP_PRINCIPAL_POLICY);
+        when(policyState.getProperty(REP_PRINCIPAL_NAME)).thenReturn(PropertyStates.createProperty(REP_PRINCIPAL_NAME, "name"));
+
+        NodeState ns = mockNodeState(NT_OAK_UNSTRUCTURED);
+        when(ns.hasChildNode(REP_PRINCIPAL_POLICY)).thenReturn(true);
+        when(ns.getChildNode(REP_PRINCIPAL_POLICY)).thenReturn(policyState);
+        when(ns.getProperty(JCR_MIXINTYPES)).thenReturn(createMixinTypesProperty(MIX_REP_PRINCIPAL_BASED_MIXIN));
+
+        Validator v = createRootValidator(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)), mp);
+        v = v.childNodeChanged("any", ns, ns);
+        v = v.childNodeChanged(REP_PRINCIPAL_POLICY, policyState, policyState);
+
+        try {
+            NodeState entry = mockNodeState(NT_REP_PRINCIPAL_ENTRY);
+            when(entry.getProperty(REP_EFFECTIVE_PATH)).thenReturn(null);
+            when(entry.getNames(REP_PRIVILEGES)).thenReturn(ImmutableList.of(JCR_READ));
+
+            v.childNodeChanged("entryName", entry, entry);
+            fail("CommitFailedException type CONSTRAINT code 21 expected.");
+        } catch (CommitFailedException e) {
+            assertEquals(CommitFailedException.CONSTRAINT, e.getType());
+            assertEquals(21, e.getCode());
         }
     }
 }

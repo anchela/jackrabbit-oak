@@ -42,6 +42,7 @@ import javax.jcr.security.AccessControlException;
 import javax.jcr.security.AccessControlPolicy;
 import javax.jcr.security.Privilege;
 import java.security.Principal;
+import java.util.Set;
 
 import static org.apache.jackrabbit.oak.spi.security.authorization.principalbased.impl.Constants.MIX_REP_PRINCIPAL_BASED_MIXIN;
 import static org.apache.jackrabbit.oak.spi.security.authorization.principalbased.impl.Constants.REP_PRINCIPAL_POLICY;
@@ -199,6 +200,19 @@ public class PrincipalBasedAccessControlManagerTest extends AbstractPrincipalBas
         }
     }
 
+    /**
+     * Since principal-based permissions are only evaluated if the complete set of principals is supported, the same
+     * should apply for {@link AccessControlManager#getEffectivePolicies(Set)}.
+     */
+    @Test
+    public void testGetEffectivePoliciesMixedPrincipalSet() throws Exception {
+        setupPrincipalBasedAccessControl(validPrincipal, testJcrPath, JCR_READ);
+        root.commit();
+
+        Set<Principal> mixedPrincipalSet = ImmutableSet.of(validPrincipal, getTestUser().getPrincipal());
+        assertEquals(0, acMgr.getEffectivePolicies(mixedPrincipalSet).length);
+    }
+
     @Test
     public void testGetEffectivePoliciesRemovedPolicy() throws Exception {
         setupPrincipalBasedAccessControl(validPrincipal, null, JCR_WORKSPACE_MANAGEMENT);
@@ -293,7 +307,7 @@ public class PrincipalBasedAccessControlManagerTest extends AbstractPrincipalBas
     }
 
     @Test
-    public void testSetPolicyRemovesExistingEntriesOnly() throws Exception {
+    public void testSetPolicyRemovesAllChildNodes() throws Exception {
         PrincipalPolicyImpl policy = setupPrincipalBasedAccessControl(validPrincipal, testJcrPath, JCR_READ);
 
         Tree policyTree = root.getTree(policy.getOakPath()).getChild(REP_PRINCIPAL_POLICY);
@@ -304,7 +318,7 @@ public class PrincipalBasedAccessControlManagerTest extends AbstractPrincipalBas
         acMgr.setPolicy(policy.getPath(), policy);
 
         policyTree = root.getTree(policy.getOakPath()).getChild(REP_PRINCIPAL_POLICY);
-        assertTrue(policyTree.hasChild("nonEntryChild"));
+        assertFalse(policyTree.hasChild("nonEntryChild"));
         policy = (PrincipalPolicyImpl) acMgr.getPolicies(validPrincipal)[0];
         assertArrayEquals(privilegesFromNames(REP_READ_NODES), policy.getEntries().get(0).getPrivileges());
     }

@@ -65,13 +65,6 @@ final class MgrProviderImpl implements MgrProvider {
         return config.getSecurityProvider();
     }
 
-    @NotNull
-    @Override
-    public Root getRoot() {
-        checkRootInitialized();
-        return root;
-    }
-
     @Override
     public void reset(@NotNull Root root, NamePathMapper namePathMapper) {
         this.root = root;
@@ -82,6 +75,13 @@ final class MgrProviderImpl implements MgrProvider {
         this.principalManager = null;
         this.privilegeManager = null;
         this.privilegeBitsProvider = null;
+    }
+
+    @NotNull
+    @Override
+    public Root getRoot() {
+        checkRootInitialized();
+        return root;
     }
 
     @NotNull

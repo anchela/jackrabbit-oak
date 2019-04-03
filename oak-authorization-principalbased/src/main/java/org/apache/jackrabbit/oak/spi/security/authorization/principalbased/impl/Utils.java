@@ -23,9 +23,12 @@ import org.apache.jackrabbit.api.security.authorization.PrivilegeManager;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.namepath.NamePathMapper;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
+import org.apache.jackrabbit.oak.spi.security.authorization.permission.PermissionProvider;
+import org.apache.jackrabbit.oak.spi.security.authorization.permission.Permissions;
 import org.apache.jackrabbit.oak.spi.security.authorization.principalbased.Filter;
 import org.apache.jackrabbit.oak.spi.xml.ImportBehavior;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,5 +113,13 @@ final class Utils implements Constants {
                 return null;
             }
         }), Predicates.notNull()).toArray(new Privilege[0]);
+    }
+
+    public static boolean hasModAcPermission(@NotNull PermissionProvider permissionProvider, @NotNull String effectivePath) {
+        if (REPOSITORY_PERMISSION_PATH.equals(effectivePath)) {
+            return permissionProvider.getRepositoryPermission().isGranted(Permissions.MODIFY_ACCESS_CONTROL);
+        } else {
+            return permissionProvider.isGranted(effectivePath, Permissions.getString(Permissions.MODIFY_ACCESS_CONTROL));
+        }
     }
 }

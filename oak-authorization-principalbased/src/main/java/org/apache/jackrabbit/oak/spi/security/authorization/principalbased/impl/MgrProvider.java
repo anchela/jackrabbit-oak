@@ -35,10 +35,10 @@ interface MgrProvider {
     @NotNull
     SecurityProvider getSecurityProvider();
 
+    void reset(@NotNull Root root, NamePathMapper namePathMapper);
+
     @NotNull
     Root getRoot();
-
-    void reset(@NotNull Root root, NamePathMapper namePathMapper);
 
     @NotNull
     NamePathMapper getNamePathMapper();

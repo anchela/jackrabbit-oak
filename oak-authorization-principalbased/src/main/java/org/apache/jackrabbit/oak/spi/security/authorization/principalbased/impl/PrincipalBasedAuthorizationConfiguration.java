@@ -105,13 +105,12 @@ public class PrincipalBasedAuthorizationConfiguration extends ConfigurationBase 
     @NotNull
     @Override
     public PermissionProvider getPermissionProvider(@NotNull Root root, @NotNull String workspaceName, @NotNull Set<Principal> principals) {
-        Filter f = filterProvider.getFilter(getSecurityProvider(), root, NamePathMapper.DEFAULT);
+        Filter f = filterProvider.getFilter(getSecurityProvider(), getRootProvider().createReadOnlyRoot(root), NamePathMapper.DEFAULT);
         if (!f.canHandle(principals)) {
             return EmptyPermissionProvider.getInstance();
         } else {
             Iterable<String> principalPaths = Iterables.transform(principals, principal -> f.getOakPath(principal));
-            MgrProvider mgrProvider = new MgrProviderImpl(this, root, NamePathMapper.DEFAULT);
-            return new PrincipalBasedPermissionProvider(root, workspaceName, principalPaths, mgrProvider);
+            return new PrincipalBasedPermissionProvider(root, workspaceName, principalPaths, this);
         }
     }
 
@@ -145,7 +144,7 @@ public class PrincipalBasedAuthorizationConfiguration extends ConfigurationBase 
     @NotNull
     @Override
     public List<? extends ValidatorProvider> getValidators(@NotNull String workspaceName, @NotNull Set<Principal> principals, @NotNull MoveTracker moveTracker) {
-        return ImmutableList.of(new PrincipalPolicyValidatorProvider(new MgrProviderImpl(this)));
+        return ImmutableList.of(new PrincipalPolicyValidatorProvider(new MgrProviderImpl(this), principals, workspaceName));
     }
 
     @NotNull

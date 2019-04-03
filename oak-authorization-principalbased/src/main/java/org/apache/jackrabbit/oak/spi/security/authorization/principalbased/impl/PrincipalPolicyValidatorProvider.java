@@ -34,6 +34,8 @@ import org.apache.jackrabbit.oak.spi.commit.Validator;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.commit.VisibleValidator;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
+import org.apache.jackrabbit.oak.spi.security.authorization.AuthorizationConfiguration;
+import org.apache.jackrabbit.oak.spi.security.authorization.permission.PermissionProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.jetbrains.annotations.NotNull;
@@ -41,22 +43,33 @@ import org.jetbrains.annotations.NotNull;
 import javax.jcr.RepositoryException;
 import javax.jcr.security.AccessControlException;
 import javax.jcr.security.Privilege;
+import java.security.Principal;
+import java.util.Set;
 
+import static org.apache.jackrabbit.oak.api.CommitFailedException.ACCESS;
 import static org.apache.jackrabbit.oak.api.CommitFailedException.ACCESS_CONTROL;
+import static org.apache.jackrabbit.oak.api.CommitFailedException.CONSTRAINT;
 import static org.apache.jackrabbit.oak.api.CommitFailedException.OAK;
+import static org.apache.jackrabbit.oak.plugins.tree.factories.RootFactory.createReadOnlyRoot;
 
 class PrincipalPolicyValidatorProvider extends ValidatorProvider implements Constants {
 
     private final MgrProvider mgrProvider;
+    private final Set<Principal> principals;
+    private final String workspaceName;
 
+    private PermissionProvider permissionProvider;
     private TypePredicate isMixPrincipalBased;
 
-    PrincipalPolicyValidatorProvider(@NotNull MgrProvider mgrProvider) {
+    PrincipalPolicyValidatorProvider(@NotNull MgrProvider mgrProvider, @NotNull Set<Principal> principals, @NotNull String workspaceName) {
         this.mgrProvider = mgrProvider;
+        this.principals = principals;
+        this.workspaceName = workspaceName;
     }
 
     @Override
     protected PolicyValidator getRootValidator(NodeState before, NodeState after, CommitInfo info) {
+        permissionProvider = mgrProvider.getSecurityProvider().getConfiguration(AuthorizationConfiguration.class).getPermissionProvider(createReadOnlyRoot(before), workspaceName, principals);
         isMixPrincipalBased = new TypePredicate(after, MIX_REP_PRINCIPAL_BASED_MIXIN);
         return new PolicyValidator(after);
     }
@@ -87,7 +100,7 @@ class PrincipalPolicyValidatorProvider extends ValidatorProvider implements Cons
             String propertyName = after.getName();
             if (JcrConstants.JCR_PRIMARYTYPE.equals(propertyName)) {
                 if (NT_REP_PRINCIPAL_POLICY.equals(after.getValue(Type.NAME)) && !REP_PRINCIPAL_POLICY.equals(parentAfter.getName())) {
-                    throw accessViolation(30, "Attempt create policy node with different name than '"+REP_PRINCIPAL_POLICY+"'.");
+                    throw accessControlViolation(30, "Attempt create policy node with different name than '"+REP_PRINCIPAL_POLICY+"'.");
                 }
             }
         }
@@ -97,7 +110,7 @@ class PrincipalPolicyValidatorProvider extends ValidatorProvider implements Cons
             String name = after.getName();
             if (JcrConstants.JCR_PRIMARYTYPE.equals(name)) {
                 if (NT_REP_PRINCIPAL_POLICY.equals(before.getValue(Type.STRING)) || NT_REP_PRINCIPAL_POLICY.equals(after.getValue(Type.STRING))) {
-                    throw accessViolation(31, "Attempt to change primary type of/to rep:PrincipalPolicy.");
+                    throw accessControlViolation(31, "Attempt to change primary type of/to rep:PrincipalPolicy.");
                 }
             }
         }
@@ -134,16 +147,16 @@ class PrincipalPolicyValidatorProvider extends ValidatorProvider implements Cons
         //----------------------------------------------------------------------
         private void validatePolicyNode(@NotNull Tree parent, @NotNull NodeState nodeState) throws CommitFailedException {
             if (!NT_REP_PRINCIPAL_POLICY.equals(NodeStateUtils.getPrimaryTypeName(nodeState))) {
-                throw accessViolation(32, "Reserved node name 'rep:principalPolicy' must only be used for nodes of type 'rep:PrincipalPolicy'.");
+                throw accessControlViolation(32, "Reserved node name 'rep:principalPolicy' must only be used for nodes of type 'rep:PrincipalPolicy'.");
             }
             if (!isMixPrincipalBased.apply(parent)) {
-                throw accessViolation(33, "Parent node not of mixin type 'rep:PrincipalBasedMixin'.");
+                throw accessControlViolation(33, "Parent node not of mixin type 'rep:PrincipalBasedMixin'.");
             }
         }
 
         private void validateRestrictions(@NotNull NodeState nodeState) throws CommitFailedException {
             if (!NT_REP_RESTRICTIONS.equals(NodeStateUtils.getPrimaryTypeName(nodeState))) {
-                throw accessViolation(34, "Reserved node name 'rep:restrictions' must only be used for nodes of type 'rep:Restrictions'.");
+                throw accessControlViolation(34, "Reserved node name 'rep:restrictions' must only be used for nodes of type 'rep:Restrictions'.");
             }
             if (NT_REP_PRINCIPAL_ENTRY.equals(TreeUtil.getPrimaryTypeName(parentAfter))) {
                 try {
@@ -165,29 +178,36 @@ class PrincipalPolicyValidatorProvider extends ValidatorProvider implements Cons
         private void validateEntry(@NotNull String name, @NotNull NodeState nodeState) throws CommitFailedException {
             String entryPath = PathUtils.concat(parentAfter.getPath(), name);
             if (!REP_PRINCIPAL_POLICY.equals(parentAfter.getName())) {
-                throw accessViolation(36, "Isolated entry of principal policy at " + entryPath);
+                throw accessControlViolation(36, "Isolated entry of principal policy at " + entryPath);
             }
             Iterable<String> privilegeNames = nodeState.getNames(REP_PRIVILEGES);
             if (Iterables.isEmpty(privilegeNames)) {
-                throw accessViolation(37, "Empty rep:privileges property at " + entryPath);
+                throw accessControlViolation(37, "Empty rep:privileges property at " + entryPath);
             }
             PrivilegeManager privilegeManager = mgrProvider.getPrivilegeManager();
             for (String privilegeName : privilegeNames) {
                 try {
                     Privilege privilege = privilegeManager.getPrivilege(privilegeName);
                     if (privilege.isAbstract()) {
-                        throw accessViolation(38, "Abstract privilege " + privilegeName + " at " + entryPath);
+                        throw accessControlViolation(38, "Abstract privilege " + privilegeName + " at " + entryPath);
                     }
                 } catch (AccessControlException e) {
-                    throw accessViolation(39, "Invalid privilege " + privilegeName + " at " + entryPath);
+                    throw accessControlViolation(39, "Invalid privilege " + privilegeName + " at " + entryPath);
                 } catch (RepositoryException e) {
                     throw new CommitFailedException(OAK, 13, "Internal error", e);
                 }
             }
-            // no validation required for mandatory rep:effectivePath property -> covered by node type
+            // check mod-access-control permission on the effective path
+            PropertyState effectivePath = nodeState.getProperty(REP_EFFECTIVE_PATH);
+            if (effectivePath == null) {
+                throw new CommitFailedException(CONSTRAINT, 21, "Missing mandatory rep:effectivePath property at " + entryPath);
+            }
+            if (!Utils.hasModAcPermission(permissionProvider, effectivePath.getValue(Type.PATH))) {
+                throw new CommitFailedException(ACCESS, 3, "Access denied");
+            }
         }
 
-        private CommitFailedException accessViolation(int code, String message) {
+        private CommitFailedException accessControlViolation(int code, String message) {
             return new CommitFailedException(ACCESS_CONTROL, code, message);
         }
 
