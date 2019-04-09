@@ -33,6 +33,7 @@ import org.apache.jackrabbit.oak.namepath.impl.LocalNameMapper;
 import org.apache.jackrabbit.oak.namepath.impl.NamePathMapperImpl;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.apache.jackrabbit.oak.security.internal.SecurityProviderHelper;
+import org.apache.jackrabbit.oak.spi.mount.Mounts;
 import org.apache.jackrabbit.oak.spi.security.SecurityProvider;
 import org.apache.jackrabbit.oak.spi.security.authorization.AuthorizationConfiguration;
 import org.apache.jackrabbit.oak.spi.security.authorization.permission.PermissionProvider;
@@ -98,20 +99,24 @@ public class AbstractPrincipalBasedTest extends AbstractSecurityTest {
     }
 
     @Override
+    @NotNull
     protected SecurityProvider initSecurityProvider() {
         SecurityProvider sp = super.initSecurityProvider();
         principalBasedAuthorizationConfiguration = new PrincipalBasedAuthorizationConfiguration();
         principalBasedAuthorizationConfiguration.bindFilterProvider(getFilterProvider());
+        principalBasedAuthorizationConfiguration.bindMountInfoProvider(Mounts.defaultMountInfoProvider());
         SecurityProviderHelper.updateConfig(sp, principalBasedAuthorizationConfiguration, AuthorizationConfiguration.class);
         return sp;
     }
 
     @Override
-    protected Privilege[] privilegesFromNames(String... privilegeNames) throws RepositoryException {
+    @NotNull
+    protected Privilege[] privilegesFromNames(@NotNull String... privilegeNames) throws RepositoryException {
         Iterable<String> pn = Iterables.transform(ImmutableSet.copyOf(privilegeNames), privName -> getNamePathMapper().getJcrName(privName));
         return super.privilegesFromNames(pn);
     }
 
+    @NotNull
     User getTestSystemUser() throws Exception {
         if (testSystemUser == null) {
             String uid = "testSystemUser" + UUID.randomUUID();
@@ -213,5 +218,10 @@ public class AbstractPrincipalBasedTest extends AbstractSecurityTest {
             mgrProvider = new MgrProviderImpl(principalBasedAuthorizationConfiguration, root, getNamePathMapper());
         }
         return mgrProvider;
+    }
+
+    @NotNull
+    PrincipalBasedAuthorizationConfiguration getPrincipalBasedAuthorizationConfiguration() {
+        return principalBasedAuthorizationConfiguration;
     }
 }

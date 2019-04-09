@@ -23,6 +23,7 @@ import org.apache.jackrabbit.api.security.JackrabbitAccessControlEntry;
 import org.apache.jackrabbit.api.security.JackrabbitAccessControlPolicy;
 import org.apache.jackrabbit.api.security.principal.PrincipalManager;
 import org.apache.jackrabbit.commons.iterator.AccessControlPolicyIteratorAdapter;
+import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.QueryEngine;
 import org.apache.jackrabbit.oak.api.Result;
 import org.apache.jackrabbit.oak.api.ResultRow;
@@ -163,7 +164,7 @@ class PrincipalBasedAccessControlManager extends AbstractAccessControlManager im
         getTree(oakPath, Permissions.READ_ACCESS_CONTROL, true);
 
         StringBuilder stmt = new StringBuilder(QueryConstants.SEARCH_ROOT_PATH);
-        stmt.append(filterProvider.getSearchRoot());
+        stmt.append(filterProvider.getFilterRoot());
         stmt.append("//element(*,").append(NT_REP_PRINCIPAL_ENTRY).append(")[");
         String cond = "";
         // list of effective paths not empty at this point and will at least contain the oakPath
@@ -242,6 +243,16 @@ class PrincipalBasedAccessControlManager extends AbstractAccessControlManager im
         PrincipalPolicyImpl pp = checkValidPolicy(absPath, policy);
         Tree policyTree = getPolicyTree(getTree(pp.getOakPath(), Permissions.MODIFY_ACCESS_CONTROL, true));
         if (policyTree.exists()) {
+            for (Tree child : policyTree.getChildren()) {
+                if (Utils.isPrincipalEntry(child)) {
+                    PropertyState effectivePath = child.getProperty(REP_EFFECTIVE_PATH);
+                    if (effectivePath == null) {
+                        throw new AccessControlException("Missing mandatory property rep:effectivePath; cannot validate permissions to modify policy.");
+                    } else if (!Utils.hasModAcPermission(getPermissionProvider(), effectivePath.getValue(Type.PATH))) {
+                        throw new AccessDeniedException("Access denied.");
+                    }
+                }
+            }
             policyTree.remove();
         } else {
             throw new AccessControlException("No policy to remove at " + absPath);

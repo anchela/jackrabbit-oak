@@ -28,6 +28,8 @@ import org.apache.jackrabbit.oak.spi.commit.CommitHook;
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
+import org.apache.jackrabbit.oak.spi.mount.Mount;
+import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationBase;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
@@ -84,6 +86,11 @@ public class PrincipalBasedAuthorizationConfiguration extends ConfigurationBase 
      * Reference to service implementing {@link FilterProvider} to define the principals for which this module should take effect.
      */
     private FilterProvider filterProvider;
+
+    /**
+     * Reference to service implementing {@link MountInfoProvider}
+     */
+    private MountInfoProvider mountInfoProvider;
 
     @SuppressWarnings("UnusedDeclaration")
     public PrincipalBasedAuthorizationConfiguration() {
@@ -161,25 +168,50 @@ public class PrincipalBasedAuthorizationConfiguration extends ConfigurationBase 
 
     //----------------------------------------------------< SCR Integration >---
     @Activate
-    public void activate(Configuration configuration, Map<String, Object> properties) {
+    public void activate(@NotNull Configuration configuration, @NotNull Map<String, Object> properties) {
+        checkConflictingMount();
         setParameters(ConfigurationParameters.of(properties));
     }
 
     @Modified
-    protected void modified(Configuration configuration, Map<String, Object> properties) {
+    public void modified(@NotNull Configuration configuration, @NotNull Map<String, Object> properties) {
         activate(configuration, properties);
     }
 
     @Reference(name = "filterProvider", cardinality = ReferenceCardinality.MANDATORY)
-    public void bindFilterProvider(FilterProvider filterProvider) {
+    public void bindFilterProvider(@NotNull FilterProvider filterProvider) {
         this.filterProvider = filterProvider;
     }
 
-    public void unbindFilterProvider(FilterProvider filterProvider) {
+    public void unbindFilterProvider(@NotNull FilterProvider filterProvider) {
         this.filterProvider = null;
     }
 
+    @Reference(name = "mountInfoProvider", cardinality = ReferenceCardinality.MANDATORY)
+    public void bindMountInfoProvider(@NotNull MountInfoProvider mountInfoProvider) {
+        this.mountInfoProvider = mountInfoProvider;
+    }
+
+    public void unbindMountInfoProvider(@NotNull MountInfoProvider mountInfoProvider) {
+        // set to null (and not default) to comply with OSGi lifecycle,
+        // if the reference is unset it means the service is being deactivated
+        this.mountInfoProvider = null;
+    }
+
     //--------------------------------------------------------------------------
+    /**
+     * While it is perfectly valid if the filter root is the start of or located below a mount, it's illegal if a given
+     * mount would start somewhere in the subtree of the filter root distributing the principal based policies between
+     * different mounts.
+     */
+    private void checkConflictingMount() {
+        String filterRoot = filterProvider.getFilterRoot();
+        for (Mount mount : mountInfoProvider.getNonDefaultMounts()) {
+            if (mount.isUnder(filterRoot)) {
+                throw new IllegalStateException("Mount found below filter root " + filterRoot);
+            }
+        }
+    }
 
     private static boolean registerNodeTypes(@NotNull final Root root) {
         try {

@@ -59,7 +59,7 @@ public class FilterImplTest extends AbstractPrincipalBasedTest {
         super.before();
         FilterProvider fp = getFilterProvider();
         filter = fp.getFilter(getSecurityProvider(), root, getNamePathMapper());
-        supportedPath = fp.getSearchRoot();
+        supportedPath = fp.getFilterRoot();
     }
 
     @Test

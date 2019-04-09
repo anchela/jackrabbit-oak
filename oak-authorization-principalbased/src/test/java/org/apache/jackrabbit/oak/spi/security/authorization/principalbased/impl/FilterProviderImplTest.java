@@ -52,7 +52,7 @@ public class FilterProviderImplTest {
 
     @Test
     public void testGetSearchRoot() {
-        assertEquals(PATH, provider.getSearchRoot());
+        assertEquals(PATH, provider.getFilterRoot());
     }
 
     @Test
@@ -69,16 +69,16 @@ public class FilterProviderImplTest {
     @Test
     public void testActivate() {
         FilterProviderImpl fp = new FilterProviderImpl();
-        assertNull(fp.getSearchRoot());
+        assertNull(fp.getFilterRoot());
 
         fp.activate(when(mock(FilterProviderImpl.Configuration.class).path()).thenReturn(PATH).getMock(), Collections.emptyMap());
-        assertEquals(PATH, fp.getSearchRoot());
+        assertEquals(PATH, fp.getFilterRoot());
     }
 
     @Test
     public void testModified() {
         String modifiedPath = "/modified/path";
         provider.modified(when(mock(FilterProviderImpl.Configuration.class).path()).thenReturn(modifiedPath).getMock(), Collections.emptyMap());
-        assertEquals(modifiedPath, provider.getSearchRoot());
+        assertEquals(modifiedPath, provider.getFilterRoot());
     }
 }

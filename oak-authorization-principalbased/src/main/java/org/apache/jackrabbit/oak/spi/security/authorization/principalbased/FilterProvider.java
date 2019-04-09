@@ -37,12 +37,14 @@ public interface FilterProvider {
     boolean handlesPath(@NotNull String oakPath);
 
     /**
+     * TODO
      *
      * @return
      */
-    String getSearchRoot();
+    String getFilterRoot();
 
     /**
+     * TODO
      *
      * @param securityProvider
      * @param root

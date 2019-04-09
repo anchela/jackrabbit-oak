@@ -25,6 +25,7 @@ import org.apache.jackrabbit.oak.security.authorization.restriction.RestrictionP
 import org.apache.jackrabbit.oak.spi.commit.MoveTracker;
 import org.apache.jackrabbit.oak.spi.commit.ValidatorProvider;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
+import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
 import org.apache.jackrabbit.oak.spi.security.CompositeConfiguration;
 import org.apache.jackrabbit.oak.spi.security.ConfigurationParameters;
 import org.apache.jackrabbit.oak.spi.security.SecurityProvider;
@@ -38,7 +39,6 @@ import org.apache.jackrabbit.oak.spi.security.principal.EveryonePrincipal;
 import org.apache.jackrabbit.oak.spi.state.ReadOnlyBuilder;
 import org.apache.jackrabbit.oak.spi.xml.ProtectedItemImporter;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 import javax.jcr.nodetype.NodeTypeManager;
 import javax.jcr.security.AccessControlManager;
@@ -186,7 +186,7 @@ public class PrincipalBasedAuthorizationConfigurationTest extends AbstractPrinci
 
     @Test
     public void testActivate() {
-        PrincipalBasedAuthorizationConfiguration pbac = new PrincipalBasedAuthorizationConfiguration();
+        PrincipalBasedAuthorizationConfiguration pbac = getPrincipalBasedAuthorizationConfiguration();
         pbac.activate(mock(PrincipalBasedAuthorizationConfiguration.Configuration.class), ImmutableMap.of(PARAM_RANKING, 50, "invalid", "someValue"));
 
         ConfigurationParameters params = pbac.getParameters();
@@ -196,7 +196,7 @@ public class PrincipalBasedAuthorizationConfigurationTest extends AbstractPrinci
 
     @Test
     public void testModified() {
-        PrincipalBasedAuthorizationConfiguration pbac = new PrincipalBasedAuthorizationConfiguration();
+        PrincipalBasedAuthorizationConfiguration pbac = getPrincipalBasedAuthorizationConfiguration();
         pbac.activate(mock(PrincipalBasedAuthorizationConfiguration.Configuration.class), ImmutableMap.of(PARAM_RANKING, 50, "invalid", "someValue"));
         pbac.modified(mock(PrincipalBasedAuthorizationConfiguration.Configuration.class), ImmutableMap.of(PARAM_RANKING, 85, "test", "someValue"));
 
@@ -218,5 +218,19 @@ public class PrincipalBasedAuthorizationConfigurationTest extends AbstractPrinci
 
         pbac.unbindFilterProvider(mock(FilterProvider.class));
         assertNull(fp.get(pbac));
+    }
+
+    @Test
+    public void testBindUnbindMountInfoProvider() throws Exception {
+        Field f = PrincipalBasedAuthorizationConfiguration.class.getDeclaredField("mountInfoProvider");
+        f.setAccessible(true);
+
+        PrincipalBasedAuthorizationConfiguration pbac = new PrincipalBasedAuthorizationConfiguration();
+        pbac.bindMountInfoProvider(mock(MountInfoProvider.class));
+
+        assertNotNull(f.get(pbac));
+
+        pbac.unbindMountInfoProvider(mock(MountInfoProvider.class));
+        assertNull(f.get(pbac));
     }
 }

@@ -78,7 +78,7 @@ public class FilterProviderImpl implements FilterProvider {
     }
 
     @Override
-    public String getSearchRoot() {
+    public String getFilterRoot() {
         return oakPath;
     }
 

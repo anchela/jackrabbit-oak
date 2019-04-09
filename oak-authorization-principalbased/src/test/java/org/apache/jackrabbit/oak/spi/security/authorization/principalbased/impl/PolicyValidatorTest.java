@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_MIXINTYPES;
+import static org.apache.jackrabbit.JcrConstants.JCR_SYSTEM;
 import static org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants.NT_OAK_UNSTRUCTURED;
 import static org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants.REP_GLOB;
 import static org.apache.jackrabbit.oak.spi.security.authorization.accesscontrol.AccessControlConstants.REP_ITEM_NAMES;
@@ -94,10 +95,14 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
     }
 
     @NotNull
-    private Validator getValidatorAtNodeTypeTree(@NotNull NodeState nodeState, @NotNull String parentName) throws Exception {
+    private Validator getValidatorAtNodeTypeTree(@NotNull NodeState nodeState, @NotNull String parentName, boolean isAdd) throws Exception {
         Validator v = createRootValidator(nodeState);
         when(nodeState.getProperty(JcrConstants.JCR_PRIMARYTYPE)).thenReturn(createPrimaryTypeProperty(JcrConstants.NT_BASE));
-        return v.childNodeAdded(parentName, nodeState).childNodeAdded(NodeTypeConstants.JCR_NODE_TYPES, nodeState);
+        if (isAdd) {
+            return v.childNodeAdded(parentName, nodeState).childNodeAdded(NodeTypeConstants.JCR_NODE_TYPES, nodeState);
+        }  else {
+            return v.childNodeChanged(parentName, nodeState, nodeState).childNodeChanged(NodeTypeConstants.JCR_NODE_TYPES, nodeState, nodeState);
+        }
     }
 
     @NotNull
@@ -224,14 +229,28 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
 
     @Test
     public void testChildAddedToNodeTypeTree() throws Exception {
-        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JcrConstants.JCR_SYSTEM);
+        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JCR_SYSTEM, true);
         validator.childNodeAdded(REP_PRINCIPAL_POLICY, mockNodeState);
     }
 
     @Test
-    public void testChildAddedBelowNodeTypeTree() throws Exception {
-        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JcrConstants.JCR_SYSTEM);
-        validator.childNodeAdded("any", mockNodeState).childNodeAdded(REP_PRINCIPAL_POLICY, mockNodeState);
+    public void testChildChangedToNodeTypeTree() throws Exception {
+        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JCR_SYSTEM, false);
+        validator.childNodeChanged(REP_PRINCIPAL_POLICY, mockNodeState, mockNodeState);
+    }
+
+    @Test
+    public void testChildChangedBelowNodeTypeTree() throws Exception {
+        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JCR_SYSTEM, false);
+        validator.childNodeChanged("any", mockNodeState, mockNodeState).childNodeChanged(REP_PRINCIPAL_POLICY, mockNodeState, mockNodeState);
+    }
+
+    @Test
+    public void testChildDeletedToNodeTypeTree() throws Exception {
+        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JCR_SYSTEM, false);
+
+        when(mockNodeState.hasChildNode(REP_PRINCIPAL_POLICY)).thenReturn(true);
+        validator.childNodeDeleted(REP_PRINCIPAL_POLICY, mockNodeState);
     }
 
     @Test
@@ -270,14 +289,6 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
     }
 
     @Test
-    public void testChildChangedToNodeTypeTree() throws Exception {
-        Validator validator = getValidatorAtNodeTypeTree(mockNodeState, JcrConstants.JCR_SYSTEM);
-
-        when(mockNodeState.hasChildNode(REP_PRINCIPAL_POLICY)).thenReturn(true);
-        validator.childNodeChanged(REP_PRINCIPAL_POLICY, mockNodeState, mockNodeState);
-    }
-
-    @Test
     public void tetChildChangedWrongType() {
         NodeState ns = mockNodeState(NT_OAK_UNSTRUCTURED);
         NodeState child = mockNodeState(NodeTypeConstants.NT_REP_UNSTRUCTURED);
@@ -311,7 +322,7 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
     @Test
     public void testArbitraryNodeTypeTreeTriggersValidation() throws Exception {
         NodeState rootState = spy(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)));
-        Validator validator = getValidatorAtNodeTypeTree(rootState, "notJcrSystem");
+        Validator validator = getValidatorAtNodeTypeTree(rootState, "notJcrSystem", true);
 
         NodeState child = mockNodeState(NT_REP_PRINCIPAL_POLICY);
         try {
@@ -323,9 +334,23 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
     }
 
     @Test
+    public void testArbitraryNodeTypeTreeTriggersValidation2() throws Exception {
+        NodeState rootState = spy(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)));
+        Validator validator = getValidatorAtNodeTypeTree(rootState, "notJcrSystem", false);
+
+        when(mockNodeState.hasChildNode(REP_PRINCIPAL_POLICY)).thenReturn(true);
+        when(mockNodeState.getChildNode(REP_PRINCIPAL_POLICY)).thenReturn(mockNodeState);;
+        try {
+            validator.childNodeChanged(REP_PRINCIPAL_POLICY, mockNodeState, mockNodeState);
+            failCommitFailedExcpected(32);
+        } catch (CommitFailedException e) {
+            assertCommitFailed(e, 32);
+        }
+    }
+
+    @Test
     public void testAddRestrictionWithWrongNtName() throws Exception {
         NodeState rootState = spy(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)));
-
         NodeState restrictions = mockNodeState(NT_OAK_UNSTRUCTURED);
         try {
             Validator v = createRootValidator(rootState).childNodeAdded(REP_RESTRICTIONS, restrictions);
@@ -538,5 +563,23 @@ public class PolicyValidatorTest extends AbstractPrincipalBasedTest {
             assertEquals(CommitFailedException.CONSTRAINT, e.getType());
             assertEquals(21, e.getCode());
         }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIllegalAddDelete() throws Exception {
+        NodeState rootState = spy(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)));
+        NodeState child = mockNodeState(NT_OAK_UNSTRUCTURED);
+
+        Validator v = createRootValidator(rootState).childNodeAdded("added", child);
+        v.childNodeDeleted("deleted", child);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIllegalDeleteAdd() throws Exception {
+        NodeState rootState = spy(getTreeProvider().asNodeState(root.getTree(PathUtils.ROOT_PATH)));
+        NodeState child = mockNodeState(NT_OAK_UNSTRUCTURED);
+
+        Validator v = createRootValidator(rootState).childNodeDeleted("deleted", child);
+        v.childNodeAdded("added", child);
     }
 }
