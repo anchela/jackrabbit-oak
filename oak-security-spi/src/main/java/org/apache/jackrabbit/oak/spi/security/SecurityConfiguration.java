@@ -21,6 +21,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.jackrabbit.oak.stats.Monitor;
+import org.apache.jackrabbit.oak.stats.StatisticsProvider;
 import org.jetbrains.annotations.NotNull;
 import org.osgi.annotation.versioning.ProviderType;
 import org.apache.jackrabbit.oak.spi.commit.CommitHook;
@@ -119,6 +121,11 @@ public interface SecurityConfiguration {
      */
     @NotNull
     Context getContext();
+
+    @NotNull
+    default Iterable<Monitor<?>> getMonitors(@NotNull StatisticsProvider statisticsProvider) {
+        return Collections.emptySet();
+    }
 
     /**
      * Default implementation that provides empty initializers, validators,
