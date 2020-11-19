@@ -34,6 +34,9 @@ import java.util.stream.Collectors;
  */
 class ElasticIndexHelper {
 
+    private static final String ES_DENSE_VECTOR_TYPE = "dense_vector";
+    private static final String ES_DENSE_VECTOR_DIM_PROP = "dims";
+
     public static CreateIndexRequest createIndexRequest(String remoteIndexName, ElasticIndexDefinition indexDefinition) throws IOException {
         final CreateIndexRequest request = new CreateIndexRequest(remoteIndexName);
 
@@ -60,6 +63,8 @@ class ElasticIndexHelper {
     private static XContentBuilder loadSettings(ElasticIndexDefinition indexDefinition) throws IOException {
         final XContentBuilder settingsBuilder = XContentFactory.jsonBuilder();
         settingsBuilder.startObject();
+        settingsBuilder.field("number_of_shards", indexDefinition.numberOfShards);
+        settingsBuilder.field("number_of_replicas", indexDefinition.numberOfReplicas);
         {
             settingsBuilder.startObject("analysis");
             {
@@ -152,6 +157,8 @@ class ElasticIndexHelper {
 
             Type<?> type = null;
             boolean useInSpellCheck = false;
+            boolean useInSimilarity = false;
+            int denseVectorSize = -1;
             for (PropertyDefinition pd : propertyDefinitions) {
                 type = Type.fromTag(pd.getType(), false);
                 if (pd.useInSpellcheck) {
@@ -159,6 +166,10 @@ class ElasticIndexHelper {
                 }
                 if (pd.useInSuggest) {
                     useInSuggest = true;
+                }
+                if (pd.useInSimilarity) {
+                    useInSimilarity = true;
+                    denseVectorSize = pd.getSimilaritySearchDenseVectorSize();
                 }
             }
 
@@ -202,6 +213,13 @@ class ElasticIndexHelper {
                 }
             }
             mappingBuilder.endObject();
+
+            if (useInSimilarity) {
+                mappingBuilder.startObject(FieldNames.createSimilarityFieldName(name));
+                mappingBuilder.field("type", ES_DENSE_VECTOR_TYPE);
+                mappingBuilder.field(ES_DENSE_VECTOR_DIM_PROP, denseVectorSize);
+                mappingBuilder.endObject();
+            }
         }
 
         if (useInSuggest) {
@@ -220,6 +238,30 @@ class ElasticIndexHelper {
             }
             mappingBuilder.endObject();
         }
+
+        for (PropertyDefinition pd : indexDefinition.getDynamicBoostProperties()) {
+            mappingBuilder.startObject(pd.nodeName);
+            {
+                mappingBuilder.field("type", "nested");
+                mappingBuilder.startObject("properties");
+                {
+                    mappingBuilder.startObject("value")
+                            .field("type", "text")
+                            .field("analyzer", "oak_analyzer")
+                            .endObject();
+                    mappingBuilder.startObject("boost")
+                            .field("type", "double")
+                            .endObject();
+                }
+                mappingBuilder.endObject();
+            }
+            mappingBuilder.endObject();
+        }
+
+        mappingBuilder.startObject(ElasticIndexDefinition.SIMILARITY_TAGS)
+                .field("type", "text")
+                .field("analyzer", "oak_analyzer")
+                .endObject();
     }
 
     // we need to check if in the defined rules there are properties with the same name and different types

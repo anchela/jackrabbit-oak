@@ -51,10 +51,21 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public static final String BULK_RETRIES_BACKOFF = "bulkRetriesBackoff";
     public static final long BULK_RETRIES_BACKOFF_DEFAULT = 200;
 
+    public static final String NUMBER_OF_SHARDS = "numberOfShards";
+    public static final int NUMBER_OF_SHARDS_DEFAULT = 1;
+
+    public static final String NUMBER_OF_REPLICAS = "numberOfReplicas";
+    public static final int NUMBER_OF_REPLICAS_DEFAULT = 1;
+
     /**
      * Hidden property for storing a seed value to be used as suffix in remote index name.
      */
     public static final String PROP_INDEX_NAME_SEED = ":nameSeed";
+
+    /**
+     * Hidden property to store similarity tags
+     */
+    public static final String SIMILARITY_TAGS = ":simTags";
 
     /**
      * Node name under which various analyzers are configured
@@ -82,8 +93,11 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public final int bulkRetries;
     public final long bulkRetriesBackoff;
     private final String remoteAlias;
+    public final int numberOfShards;
+    public final int numberOfReplicas;
 
     private final Map<String, List<PropertyDefinition>> propertiesByName;
+    private final List<PropertyDefinition> dynamicBoostProperties;
 
     public ElasticIndexDefinition(NodeState root, NodeState defn, String indexPath, String indexPrefix) {
         super(root, defn, determineIndexFormatVersion(defn), determineUniqueId(defn), indexPath);
@@ -93,12 +107,20 @@ public class ElasticIndexDefinition extends IndexDefinition {
         this.bulkFlushIntervalMs = getOptionalValue(defn, BULK_FLUSH_INTERVAL_MS, BULK_FLUSH_INTERVAL_MS_DEFAULT);
         this.bulkRetries = getOptionalValue(defn, BULK_RETRIES, BULK_RETRIES_DEFAULT);
         this.bulkRetriesBackoff = getOptionalValue(defn, BULK_RETRIES_BACKOFF, BULK_RETRIES_BACKOFF_DEFAULT);
+        this.numberOfShards = getOptionalValue(defn, NUMBER_OF_SHARDS, NUMBER_OF_SHARDS_DEFAULT);
+        this.numberOfReplicas = getOptionalValue(defn, NUMBER_OF_REPLICAS, NUMBER_OF_REPLICAS_DEFAULT);
 
         this.propertiesByName = getDefinedRules()
                 .stream()
                 .flatMap(rule -> StreamSupport.stream(rule.getProperties().spliterator(), false))
                 .filter(pd -> pd.index) // keep only properties that can be indexed
                 .collect(Collectors.groupingBy(pd -> pd.name));
+
+        this.dynamicBoostProperties = getDefinedRules()
+                .stream()
+                .flatMap(IndexingRule::getNamePatternsProperties)
+                .filter(pd -> pd.dynamicBoost)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -112,6 +134,10 @@ public class ElasticIndexDefinition extends IndexDefinition {
 
     public Map<String, List<PropertyDefinition>> getPropertiesByName() {
         return propertiesByName;
+    }
+
+    public List<PropertyDefinition> getDynamicBoostProperties() {
+        return dynamicBoostProperties;
     }
 
     /**
