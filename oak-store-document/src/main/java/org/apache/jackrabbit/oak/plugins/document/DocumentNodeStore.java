@@ -883,6 +883,27 @@ public final class DocumentNodeStore
 
         Utils.joinQuietly(clusterUpdateThread);
 
+        // attempt diagnostics on lease update thread
+        boolean isLeaseExpired = clusterNodeInfo.isLeaseExpired(clock.getTime());
+        Thread.State leaseUpdateState = leaseUpdateThread.getState();
+        if (leaseUpdateState == Thread.State.TERMINATED) {
+            LOG.error("leaseUpdateThread (" + leaseUpdateThread.getName() + ") is terminated");
+        }
+
+        if (isLeaseExpired || LOG.isDebugEnabled()) {
+            StringBuilder message = new StringBuilder(
+                    "Status of lease update thread (" + leaseUpdateThread.getName() + "): " + leaseUpdateState + "; Stack Trace:");
+            for (StackTraceElement se : leaseUpdateThread.getStackTrace()) {
+                message.append("\n\tat ");
+                message.append(se.toString());
+            }
+            if (isLeaseExpired) {
+                LOG.info(message.toString());
+            } else {
+                LOG.debug(message.toString());
+            }
+        }
+
         // Stop lease update thread once no further document store operations
         // are required
         LOG.debug("Stopping LeaseUpdate thread...");
@@ -2018,12 +2039,14 @@ public final class DocumentNodeStore
     @NotNull
     @Override
     public String checkpoint(long lifetime, @NotNull Map<String, String> properties) {
+        checkOpen();
         return checkpoints.create(lifetime, properties).toString();
     }
 
     @NotNull
     @Override
     public String checkpoint(long lifetime) {
+        checkOpen();
         Map<String, String> empty = Collections.emptyMap();
         return checkpoint(lifetime, empty);
     }
@@ -2031,6 +2054,7 @@ public final class DocumentNodeStore
     @NotNull
     @Override
     public Map<String, String> checkpointInfo(@NotNull String checkpoint) {
+        checkOpen();
         Revision r = Revision.fromString(checkpoint);
         Checkpoints.Info info = checkpoints.getCheckpoints().get(r);
         if (info == null) {
@@ -2044,6 +2068,7 @@ public final class DocumentNodeStore
     @NotNull
     @Override
     public Iterable<String> checkpoints() {
+        checkOpen();
         final long now = clock.getTime();
         return Iterables.transform(Iterables.filter(checkpoints.getCheckpoints().entrySet(),
                 new Predicate<Map.Entry<Revision,Checkpoints.Info>>() {
@@ -2062,6 +2087,7 @@ public final class DocumentNodeStore
     @Nullable
     @Override
     public NodeState retrieve(@NotNull String checkpoint) {
+        checkOpen();
         RevisionVector rv = getCheckpoints().retrieve(checkpoint);
         if (rv == null) {
             return null;
@@ -2073,6 +2099,7 @@ public final class DocumentNodeStore
 
     @Override
     public boolean release(@NotNull String checkpoint) {
+        checkOpen();
         checkpoints.release(checkpoint);
         return true;
     }
@@ -2479,6 +2506,7 @@ public final class DocumentNodeStore
         List<UpdateOp> splitOpsPhase2 = new ArrayList<>(initialCapacity);
         List<String> removeCandidates = new ArrayList<>(initialCapacity);
         for (String id : splitCandidates.keySet()) {
+            removeCandidates.add(id);
             NodeDocument doc = store.find(Collection.NODES, id);
             if (doc == null) {
                 continue;
@@ -2502,7 +2530,6 @@ public final class DocumentNodeStore
                     splitOpsPhase2.add(op);
                 }
             }
-            removeCandidates.add(id);
             if (splitOpsPhase1.size() >= getCreateOrUpdateBatchSize()
                     || splitOpsPhase2.size() >= getCreateOrUpdateBatchSize()) {
                 invalidatePaths(pathsToInvalidate);
@@ -2521,8 +2548,8 @@ public final class DocumentNodeStore
             invalidatePaths(pathsToInvalidate);
             batchSplit(splitOpsPhase1);
             batchSplit(splitOpsPhase2);
-            splitCandidates.keySet().removeAll(removeCandidates);
         }
+        splitCandidates.keySet().removeAll(removeCandidates);
     }
 
     private void invalidatePaths(@NotNull Set<Path> pathsToInvalidate) {

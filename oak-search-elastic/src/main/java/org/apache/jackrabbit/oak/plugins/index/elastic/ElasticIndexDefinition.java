@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.apache.jackrabbit.oak.plugins.index.search.util.ConfigUtil.getOptionalValue;
+import static org.apache.jackrabbit.oak.plugins.index.search.util.ConfigUtil.getOptionalValues;
 
 public class ElasticIndexDefinition extends IndexDefinition {
 
@@ -57,6 +58,9 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public static final String NUMBER_OF_REPLICAS = "numberOfReplicas";
     public static final int NUMBER_OF_REPLICAS_DEFAULT = 1;
 
+    public static final String QUERY_FETCH_SIZES = "queryFetchSizes";
+    public static final Long[] QUERY_FETCH_SIZES_DEFAULT = new Long[]{100L, 1000L};
+
     /**
      * Hidden property for storing a seed value to be used as suffix in remote index name.
      */
@@ -77,6 +81,12 @@ public class ElasticIndexDefinition extends IndexDefinition {
      */
     private static final String INDEX_ORIGINAL_TERM = "indexOriginalTerm";
 
+    private static final String SIMILARITY_TAGS_ENABLED = "similarityTagsEnabled";
+    private static final boolean SIMILARITY_TAGS_ENABLED_DEFAULT = true;
+
+    private static final String SIMILARITY_TAGS_BOOST = "similarityTagsBoost";
+    private static final float SIMILARITY_TAGS_BOOST_DEFAULT = 0.5f;
+
     private static final Function<Integer, Boolean> isAnalyzable;
 
     static {
@@ -93,11 +103,15 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public final int bulkRetries;
     public final long bulkRetriesBackoff;
     private final String remoteAlias;
+    private final boolean similarityTagsEnabled;
+    private final float similarityTagsBoost;
     public final int numberOfShards;
     public final int numberOfReplicas;
+    public final int[] queryFetchSizes;
 
     private final Map<String, List<PropertyDefinition>> propertiesByName;
     private final List<PropertyDefinition> dynamicBoostProperties;
+    private final List<PropertyDefinition> similarityProperties;
 
     public ElasticIndexDefinition(NodeState root, NodeState defn, String indexPath, String indexPrefix) {
         super(root, defn, determineIndexFormatVersion(defn), determineUniqueId(defn), indexPath);
@@ -109,6 +123,10 @@ public class ElasticIndexDefinition extends IndexDefinition {
         this.bulkRetriesBackoff = getOptionalValue(defn, BULK_RETRIES_BACKOFF, BULK_RETRIES_BACKOFF_DEFAULT);
         this.numberOfShards = getOptionalValue(defn, NUMBER_OF_SHARDS, NUMBER_OF_SHARDS_DEFAULT);
         this.numberOfReplicas = getOptionalValue(defn, NUMBER_OF_REPLICAS, NUMBER_OF_REPLICAS_DEFAULT);
+        this.similarityTagsEnabled = getOptionalValue(defn, SIMILARITY_TAGS_ENABLED, SIMILARITY_TAGS_ENABLED_DEFAULT);
+        this.similarityTagsBoost = getOptionalValue(defn, SIMILARITY_TAGS_BOOST, SIMILARITY_TAGS_BOOST_DEFAULT);
+        this.queryFetchSizes = Arrays.stream(getOptionalValues(defn, QUERY_FETCH_SIZES, Type.LONGS, Long.class, QUERY_FETCH_SIZES_DEFAULT))
+                .mapToInt(Long::intValue).toArray();
 
         this.propertiesByName = getDefinedRules()
                 .stream()
@@ -120,6 +138,11 @@ public class ElasticIndexDefinition extends IndexDefinition {
                 .stream()
                 .flatMap(IndexingRule::getNamePatternsProperties)
                 .filter(pd -> pd.dynamicBoost)
+                .collect(Collectors.toList());
+
+        this.similarityProperties = getDefinedRules()
+                .stream()
+                .flatMap(rule -> rule.getSimilarityProperties().stream())
                 .collect(Collectors.toList());
     }
 
@@ -140,16 +163,29 @@ public class ElasticIndexDefinition extends IndexDefinition {
         return dynamicBoostProperties;
     }
 
+    public List<PropertyDefinition> getSimilarityProperties() {
+        return similarityProperties;
+    }
+
+    public boolean areSimilarityTagsEnabled() {
+        return similarityTagsEnabled;
+    }
+
+    public float getSimilarityTagsBoost() {
+        return similarityTagsBoost;
+    }
+
     /**
      * Returns the keyword field name mapped in Elasticsearch for the specified property name.
      * @param propertyName the property name in the index rules
      * @return the field name identifier in Elasticsearch
-     * @throws IllegalArgumentException if the specified name is not part of this {@code ElasticIndexDefinition}
      */
     public String getElasticKeyword(String propertyName) {
         List<PropertyDefinition> propertyDefinitions = propertiesByName.get(propertyName);
         if (propertyDefinitions == null) {
-            throw new IllegalArgumentException(propertyName + " is not part of this ElasticIndexDefinition");
+            // if there are no property definitions we return the default keyword name
+            // this can happen for properties that were not explicitly defined (eg: created with a regex)
+            return propertyName + ".keyword";
         }
 
         String field = propertyName;
@@ -180,6 +216,11 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public boolean indexOriginalTerms() {
         NodeState analyzersTree = definition.getChildNode(ANALYZERS);
         return getOptionalValue(analyzersTree, INDEX_ORIGINAL_TERM, false);
+    }
+
+    @Override
+    protected PropertyDefinition createPropertyDefinition(IndexDefinition.IndexingRule rule, String name, NodeState nodeState) {
+        return new ElasticPropertyDefinition(rule, name, nodeState);
     }
 
     /**

@@ -33,13 +33,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -69,7 +72,7 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         test.addChild("c").setProperty("text", "He said Hi.");
         root.commit();
 
-        assertEventually(() -> assertQuery(nativeQueryString, Collections.singletonList("/test/b")));
+        assertEventually(() -> assertQuery(nativeQueryString, Arrays.asList("/test/c", "/test/b")));
     }
 
     /*
@@ -95,7 +98,7 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         root.commit();
 
         assertEventually(() -> assertQuery(query,
-                Arrays.asList("/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
+                Arrays.asList("/test/a", "/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
     }
 
     /*
@@ -120,7 +123,7 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         test.addChild("h").setProperty("text", "Hello");
         root.commit();
         assertEventually(() -> assertQuery(query, XPATH,
-                Arrays.asList("/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
+                Arrays.asList("/test/a", "/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
     }
 
     @Test
@@ -145,10 +148,10 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
 
         // Matches due to terms Hello or bye should be ignored
         assertEventually(() -> assertQuery(nativeQueryStringWithStopWords,
-                Arrays.asList("/test/e", "/test/f")));
+                Arrays.asList("/test/a", "/test/e", "/test/f")));
 
         assertEventually(() -> assertQuery(nativeQueryStringWithoutStopWords,
-                Arrays.asList("/test/b", "/test/c", "/test/d", "/test/e", "/test/f")));
+                Arrays.asList("/test/a", "/test/b", "/test/c", "/test/d", "/test/e", "/test/f")));
     }
 
     @Test
@@ -170,11 +173,10 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         // Matches because of term Hello should be ignored since wl <6 (so /test/ should NOT be in the match list)
         // /test/d should be in match list (because of Worlds term)
         assertEventually(() -> assertQuery(nativeQueryStringWithMinWordLength,
-                Arrays.asList("/test/c", "/test/d")));
+                Arrays.asList("/test/a", "/test/c", "/test/d")));
 
         assertEventually(() -> assertQuery(nativeQueryStringWithoutMinWordLength,
-                Arrays.asList("/test/b", "/test/c", "/test/d")));
-
+                Arrays.asList("/test/a", "/test/b", "/test/c", "/test/d")));
     }
 
     @Test
@@ -195,10 +197,11 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         test.addChild("h").setProperty("text", "Hello");
         root.commit();
 
-        String query = "select [jcr:path] from [nt:base] where similar(., '" + longPath.getPath() + "')";
+        final String p = longPath.getPath();
+        String query = "select [jcr:path] from [nt:base] where similar(., '" + p + "')";
 
         assertEventually(() -> assertQuery(query,
-                Arrays.asList("/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
+                Arrays.asList(p, "/test/b", "/test/c", "/test/d", "/test/f", "/test/g", "/test/h")));
     }
 
     @Test
@@ -217,42 +220,42 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         c.setProperty("tags", "foo");
         root.commit();
 
-        assertEventually(() -> assertOrderedQuery("select [jcr:path] from [nt:base] where similar(., '/test/a')",
-                Arrays.asList("/test/c", "/test/b")));
-        assertEventually(() -> assertOrderedQuery("select [jcr:path] from [nt:base] where similar(., '/test/c')",
-                Arrays.asList("/test/a", "/test/b")));
+        assertEventually(() -> {
+            List<String> paths = executeQuery("select [jcr:path] from [nt:base] where similar(., '/test/a')", SQL2, true, true);
+            assertEquals(paths.size(), 3);
+            assertEquals(paths.get(2), "/test/b");
+        });
     }
 
     @Test
-    public void vectorSimilarityCustomVectorSize() throws Exception {
+    public void vectorSimilarityElastiknnIndexConfiguration() throws Exception {
         final String indexName = "test1";
         final String fieldName1 = "fv1";
-        final String fieldName2 = "fv2";
         final String similarityFieldName1 = FieldNames.createSimilarityFieldName(fieldName1);
-        final String similarityFieldName2 = FieldNames.createSimilarityFieldName(fieldName2);
-        IndexDefinitionBuilder builder = createIndex(fieldName1, fieldName2);
-        builder.indexRule("nt:base").property(fieldName1).useInSimilarity(true).nodeScopeIndex()
-                .similaritySearchDenseVectorSize(10);
-        builder.indexRule("nt:base").property(fieldName2).useInSimilarity(true).nodeScopeIndex()
-                .similaritySearchDenseVectorSize(20);
+        IndexDefinitionBuilder builder = createIndex(fieldName1);
+        Tree tree = builder.indexRule("nt:base").property(fieldName1).useInSimilarity(true).nodeScopeIndex()
+                .similaritySearchDenseVectorSize(2048).getBuilderTree();
+        tree.setProperty(ElasticPropertyDefinition.PROP_INDEX_SIMILARITY, "angular");
+        tree.setProperty(ElasticPropertyDefinition.PROP_NUMBER_OF_HASH_TABLES, 10);
+        tree.setProperty(ElasticPropertyDefinition.PROP_NUMBER_OF_HASH_FUNCTIONS, 12);
+
         setIndex(indexName, builder);
         root.commit();
         String alias =  ElasticIndexNameHelper.getIndexAlias(esConnection.getIndexPrefix(), "/oak:index/" + indexName);
         GetFieldMappingsRequest fieldMappingsRequest = new GetFieldMappingsRequest();
-        fieldMappingsRequest.indices(alias).fields(similarityFieldName1, similarityFieldName2);
+        fieldMappingsRequest.indices(alias).fields(similarityFieldName1);
         GetFieldMappingsResponse mappingsResponse = esConnection.getClient().indices().
                 getFieldMapping(fieldMappingsRequest, RequestOptions.DEFAULT);
         final Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappings =
                 mappingsResponse.mappings();
         assertEquals("More than one index found", 1, mappings.keySet().size());
         @SuppressWarnings("unchecked")
-        Map<String, Integer> map1 = (Map<String, Integer>)mappings.entrySet().iterator().next().getValue().
-                get(similarityFieldName1).sourceAsMap().get(similarityFieldName1);
-        assertEquals("Dense vector size doesn't match", 10, map1.get("dims").intValue());
-        @SuppressWarnings("unchecked")
-        Map<String, Integer> map2 = (Map<String, Integer>)mappings.entrySet().iterator().next().getValue().
-                get(similarityFieldName2).sourceAsMap().get(similarityFieldName2);
-        assertEquals("Dense vector size doesn't match", 20, map2.get("dims").intValue());
+        Map<String, Object> map1 = (Map<String, Object>)(((Map<String, Object>)mappings.entrySet().iterator().next().getValue().
+                get(similarityFieldName1).sourceAsMap().get(similarityFieldName1)).get("elastiknn"));
+        assertEquals("Dense vector size doesn't match", 2048, (int)map1.get("dims"));
+        assertEquals("Similarity doesn't match", "angular", map1.get("similarity"));
+        assertEquals("Similarity doesn't match", 10, map1.get("L"));
+        assertEquals("Similarity doesn't match", 12, map1.get("k"));
     }
 
 
@@ -302,6 +305,98 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         }
     }
 
+    private void verifyLSHResults(Map<String, List<String>> expectedResults) {
+        for (String similarPath : expectedResults.keySet()) {
+            String query = "select [jcr:path] from [nt:base] where similar(., '" + "/test/" + similarPath + "')";
+            assertEventually(() -> {
+                Iterator<String> result = executeQuery(query, "JCR-SQL2", false, true).iterator();
+                List<String> expectedList = expectedResults.get(similarPath.substring(similarPath.lastIndexOf("/") + 1));
+                List<String> found = new ArrayList<>();
+                int resultNum = 0;
+                // Verify that the expected results are present in the top 10 results
+                while (result.hasNext() && resultNum < expectedList.size()) {
+                    String next = result.next();
+                    next = next.substring(next.lastIndexOf("/") + 1);
+                    found.add(next);
+                    resultNum++;
+                }
+                double per = (expectedList.stream().filter(found::contains).count() * 100.0)/expectedList.size();
+                assertEquals("expected: " + expectedList + " got: " + found, 80.0, per, 20.0);
+            });
+        }
+    }
+
+    @Test
+    public void vectorSimilarityLargeData() throws Exception {
+
+        final int similarImageCount = 10;
+        int featureVectorLength = 1024;
+
+        IndexDefinitionBuilder builder = createIndex("fv");
+        builder.indexRule("nt:base").property("fv").useInSimilarity(true).nodeScopeIndex();
+
+        setIndex("test1", builder);
+        root.commit();
+        Tree test = root.getTree("/").addChild("test");
+
+        Random r = new Random(1);
+        ArrayList<String> imageNameList = new ArrayList<>();
+        ArrayList<float[]> imageDataList = new ArrayList<>();
+        for (int i = 0; i < 2000; i++) {
+            String imageName = "img" + i;
+            imageNameList.add(imageName);
+            List<Double> values = new ArrayList<>();
+            float[] imageData = new float[featureVectorLength];
+            for (int j = 0; j < featureVectorLength; j++) {
+                double x = r.nextDouble() * 0.5;
+                double g = 30 * Math.pow(x, 3);
+                values.add(g);
+                imageData[j] = (float) g;
+            }
+            imageDataList.add(imageData);
+            byte[] bytes = toByteArray(values);
+            List<Double> actual = toDoubles(bytes);
+            assertEquals(values, actual);
+            Blob blob = root.createBlob(new ByteArrayInputStream(bytes));
+            Tree child = test.addChild(imageName);
+            child.setProperty("fv", blob, Type.BINARY);
+        }
+        root.commit();
+
+        Map<String, List<String>> expectedResults = new HashMap<>();
+        for (int testCase = 0; testCase < 10; testCase++) {
+            int imageId = r.nextInt(imageDataList.size());
+            float[] find = imageDataList.get(imageId);
+            String imageName = imageNameList.get(imageId);
+            ArrayList<Image> images = new ArrayList<>();
+            for (int i = 0; i < imageDataList.size(); i++) {
+                Image img = new Image();
+                img.name = imageNameList.get(i);
+                float[] compare = imageDataList.get(i);
+                img.distance = euclideanDistance(find, compare);
+                images.add(img);
+            }
+            images.sort(Comparator.comparingDouble(o -> o.distance));
+            ArrayList<String> expected = new ArrayList<>();
+            for (int i = 0; i < similarImageCount; i++) {
+                expected.add(images.get(i).name);
+            }
+            expectedResults.put(imageName, expected);
+        }
+        verifyLSHResults(expectedResults);
+    }
+
+    static long euclideanDistance(float[] x, float[] y) {
+        long sum = 0;
+        for (int i = 0; i < x.length; i++) {
+            float xx = y[i];
+            float yy = x[i];
+            float diff = xx - yy;
+            sum += diff * diff;
+        }
+        return sum;
+    }
+
     private void createIndex(boolean nativeQuery) throws Exception {
         IndexDefinitionBuilder builder = createIndex("text", "tags");
         if (nativeQuery) {
@@ -312,6 +407,11 @@ public class ElasticSimilarQueryTest extends ElasticAbstractQueryTest {
         String indexId = UUID.randomUUID().toString();
         setIndex(indexId, builder);
         root.commit();
+    }
+
+    static class Image {
+        double distance;
+        String name;
     }
 
 }

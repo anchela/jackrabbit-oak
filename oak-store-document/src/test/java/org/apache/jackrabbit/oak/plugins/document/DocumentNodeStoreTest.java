@@ -35,8 +35,10 @@ import static org.apache.jackrabbit.oak.plugins.document.Path.ROOT;
 import static org.apache.jackrabbit.oak.plugins.document.util.Utils.isCommitted;
 import static org.hamcrest.CoreMatchers.everyItem;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -44,7 +46,6 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -123,6 +124,7 @@ import org.hamcrest.number.OrderingComparison;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -788,7 +790,7 @@ public class DocumentNodeStoreTest {
         assertNotNull(afterRootDoc);
         Revision afterLastRev = afterRootDoc.getLastRev().get(clusterId);
 
-        assertThat("lastRev must be greater or equal '" + Utils.timestampToString(timeBeforeStartup) + "', but was '" 
+        assertThat("lastRev must be greater or equal '" + Utils.timestampToString(timeBeforeStartup) + "', but was '"
             + Utils.timestampToString(afterLastRev.getTimestamp()) + "'", afterLastRev.getTimestamp(), 
             OrderingComparison.greaterThanOrEqualTo(timeBeforeStartup));
         assertNotEquals("Last revision should be updated after 1 minute even if background thread is not running",
@@ -4041,6 +4043,83 @@ public class DocumentNodeStoreTest {
         } finally {
             System.clearProperty("oak.documentMK.createOrUpdateBatchSize");
         }
+    }
+
+    // Tests for OAK-9300
+    @Test
+    public void createCheckpointAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.checkpoint(60000));
+    }
+
+    @Test
+    public void createCheckpointWithPropertiesAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.checkpoint(60000, Collections.emptyMap()));
+    }
+
+    @Test
+    public void retrieveCheckpointInfoAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        String ref = store.checkpoint(60000);
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.checkpointInfo(ref));
+    }
+
+    @Test
+    public void getCheckpointsAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        String ref = store.checkpoint(60000);
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.checkpoints());
+    }
+
+    @Test
+    public void retrieveCheckpointAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        String ref = store.checkpoint(60000);
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.retrieve(ref));
+    }
+
+    @Test
+    public void releaseCheckpointAfterDispose() {
+        DocumentNodeStore store = new DocumentMK.Builder().getNodeStore();
+        String ref = store.checkpoint(60000);
+        store.dispose();
+        Assert.assertThrows(IllegalStateException.class, () -> store.release(ref));
+    }
+    // End of tests for OAK-9300
+
+    @Test // OAK-9158
+    public void manyNodesBelowRoot() throws Exception {
+        CountingDocumentStore store = new CountingDocumentStore(new MemoryDocumentStore());
+        DocumentNodeStore ns = builderProvider.newBuilder()
+                .setBundlingDisabled(true)
+                .setDocumentStore(store).setAsyncDelay(0)
+                .getNodeStore();
+        NodeBuilder builder = ns.getRoot().builder();
+        for (int i = 0; i < 250; i++) {
+            builder.child("node-" + i);
+        }
+        merge(ns, builder);
+        ns.dispose();
+        store.resetCounters();
+
+        ns = builderProvider.newBuilder()
+                .setBundlingDisabled(true)
+                .setDocumentStore(store).setAsyncDelay(0).setUpdateLimit(5)
+                .getNodeStore();
+
+        builder = ns.getRoot().builder();
+        for (int i = 0; i < 10; i++) {
+            builder.child("foo").setProperty("p", i);
+        }
+        merge(ns, builder);
+        assertThat(store.getNumFindCalls(NODES), lessThan(10));
+        assertEquals(0, store.getNumQueryCalls(NODES));
     }
 
     private void getChildNodeCountTest(int numChildren,

@@ -37,15 +37,16 @@ import java.util.Set;
 
 import static org.apache.jackrabbit.oak.plugins.index.elastic.util.ElasticIndexUtils.toDoubles;
 
-class ElasticDocument {
+public class ElasticDocument {
     private static final Logger LOG = LoggerFactory.getLogger(ElasticDocument.class);
 
     private final String path;
     private final Set<String> fulltext;
     private final Set<String> suggest;
+    private final Set<String> spellcheck;
     private final List<String> notNullProps;
     private final List<String> nullProps;
-    private final Map<String, Object> properties;
+    private final Map<String, List<Object>> properties;
     private final Map<String, Object> similarityFields;
     private final Map<String, Map<String, Double>> dynamicBoostFields;
     private final Set<String> similarityTags;
@@ -54,6 +55,7 @@ class ElasticDocument {
         this.path = path;
         this.fulltext = new LinkedHashSet<>();
         this.suggest = new LinkedHashSet<>();
+        this.spellcheck = new LinkedHashSet<>();
         this.notNullProps = new ArrayList<>();
         this.nullProps = new ArrayList<>();
         this.properties = new HashMap<>();
@@ -74,6 +76,10 @@ class ElasticDocument {
         suggest.add(value);
     }
 
+    void addSpellcheck(String value) {
+        spellcheck.add(value);
+    }
+
     void notNullProp(String propName) {
         notNullProps.add(propName);
     }
@@ -87,10 +93,10 @@ class ElasticDocument {
     // ref: https://www.elastic.co/blog/strings-are-dead-long-live-strings
     // (interpretation of date etc: https://www.elastic.co/guide/en/elasticsearch/reference/current/dynamic-field-mapping.html)
     void addProperty(String fieldName, Object value) {
-        properties.put(fieldName, value);
+        properties.computeIfAbsent(fieldName, s -> new ArrayList<>()).add(value);
     }
 
-    void addSimilarityField(String name, Blob value) throws IOException{
+    void addSimilarityField(String name, Blob value) throws IOException {
         byte[] bytes = new BlobByteSource(value).read();
         similarityFields.put(FieldNames.createSimilarityFieldName(name), toDoubles(bytes));
     }
@@ -129,6 +135,9 @@ class ElasticDocument {
                     }
                     builder.endArray();
                 }
+                if (spellcheck.size() > 0) {
+                    builder.field(FieldNames.SPELLCHECK, spellcheck);
+                }
                 if (notNullProps.size() > 0) {
                     builder.field(FieldNames.NOT_NULL_PROPS, notNullProps);
                 }
@@ -138,8 +147,8 @@ class ElasticDocument {
                 for (Map.Entry<String, Object> simProp: similarityFields.entrySet()) {
                     builder.field(simProp.getKey(), simProp.getValue());
                 }
-                for (Map.Entry<String, Object> prop : properties.entrySet()) {
-                    builder.field(prop.getKey(), prop.getValue());
+                for (Map.Entry<String, List<Object>> prop : properties.entrySet()) {
+                    builder.field(prop.getKey(), prop.getValue().size() == 1 ? prop.getValue().get(0) : prop.getValue());
                 }
                 for (Map.Entry<String, Map<String, Double>> f : dynamicBoostFields.entrySet()) {
                     builder.startArray(f.getKey());
