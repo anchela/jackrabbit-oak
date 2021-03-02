@@ -14,42 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.jackrabbit.oak.spi.security.authentication;
+package org.apache.jackrabbit.oak.spi.security.authentication.external.impl.monitor;
 
+import org.apache.jackrabbit.oak.spi.security.authentication.external.SyncException;
+import org.apache.jackrabbit.oak.spi.security.authentication.external.SyncResult;
 import org.apache.jackrabbit.oak.stats.Monitor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.osgi.annotation.versioning.ProviderType;
 
 import javax.jcr.Credentials;
-import javax.security.auth.login.LoginException;
 import java.util.Collections;
 import java.util.Map;
 
-@ProviderType
-public interface LoginModuleMonitor extends Monitor<LoginModuleMonitor> {
+public interface ExternalIdentityMonitor extends Monitor<ExternalIdentityMonitor> {
 
-    LoginModuleMonitor NOOP = () -> { };
+    void doneSyncExternalIdentity(long timeTakenNanos, @NotNull SyncResult result, int retryCount);
 
-    /**
-     * Event to be called in the case there is an error in the login chain. This
-     * is not covering failed logins, but actual operational errors that
-     * probably need to be investigated. Any triggered event should have a
-     * corresponding error logged to make this investigation possible.
-     */
-    void loginError();
+    void doneSyncId(long timeTakenNanos, @NotNull SyncResult result);
 
-    default void loginFailed(@NotNull LoginException loginException, @Nullable Credentials credentials) {}
-
-    default void principalsCollected(long timeTakenNanos, int numberOfPrincipals) {}
+    void syncFailed(@NotNull SyncException syncException);
 
     @Override
-    default @NotNull Class<LoginModuleMonitor> getMonitorClass() {
-        return LoginModuleMonitor.class;
+    @NotNull
+    default Class<ExternalIdentityMonitor> getMonitorClass() {
+        return ExternalIdentityMonitor.class;
     }
 
     @Override
-    default @NotNull Map<Object, Object> getMonitorProperties() {
+    @NotNull
+    default Map<Object, Object> getMonitorProperties() {
         return Collections.emptyMap();
     }
 }

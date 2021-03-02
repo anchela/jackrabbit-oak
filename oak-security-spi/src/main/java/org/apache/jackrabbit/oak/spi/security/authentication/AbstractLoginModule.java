@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.jcr.Credentials;
 import javax.jcr.NoSuchWorkspaceException;
 import javax.security.auth.DestroyFailedException;
@@ -35,6 +36,7 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.login.LoginException;
 import javax.security.auth.spi.LoginModule;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.jackrabbit.oak.api.AuthInfo;
@@ -566,7 +568,10 @@ public abstract class AbstractLoginModule implements LoginModule {
             log.debug("Cannot retrieve principals. No principal provider configured.");
             return Collections.emptySet();
         } else {
-            return principalProvider.getPrincipals(userId);
+            Stopwatch watch = Stopwatch.createStarted();
+            Set<? extends Principal> principals = principalProvider.getPrincipals(userId);
+            getLoginModuleMonitor().principalsCollected(watch.elapsed(TimeUnit.NANOSECONDS), principals.size());
+            return principals;
         }
     }
 
@@ -577,9 +582,11 @@ public abstract class AbstractLoginModule implements LoginModule {
             log.debug("Cannot retrieve principals. No principal provider configured.");
             return Collections.emptySet();
         } else {
+            Stopwatch watch = Stopwatch.createStarted();
             Set<Principal> principals = new HashSet<>();
             principals.add(userPrincipal);
             principals.addAll(principalProvider.getMembershipPrincipals(userPrincipal));
+            getLoginModuleMonitor().principalsCollected(watch.elapsed(TimeUnit.NANOSECONDS), principals.size());
             return principals;
         }
     }
@@ -592,6 +599,7 @@ public abstract class AbstractLoginModule implements LoginModule {
         subject.getPublicCredentials().add(authInfo);
     }
 
+    @NotNull
     protected LoginModuleMonitor getLoginModuleMonitor() {
         if (loginModuleMonitor == null && callbackHandler != null) {
             RepositoryCallback rcb = new RepositoryCallback();
@@ -602,13 +610,13 @@ public abstract class AbstractLoginModule implements LoginModule {
                 log.error(e.getMessage(), e);
             }
         }
+        if (loginModuleMonitor == null) {
+            loginModuleMonitor = LoginModuleMonitor.NOOP;
+        }
         return loginModuleMonitor;
     }
 
     protected void onError() {
-        LoginModuleMonitor lmm = getLoginModuleMonitor();
-        if (lmm != null) {
-            lmm.loginError();
-        }
+        getLoginModuleMonitor().loginError();
     }
 }

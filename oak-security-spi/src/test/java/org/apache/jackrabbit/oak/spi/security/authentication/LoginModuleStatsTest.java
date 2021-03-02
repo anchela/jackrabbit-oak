@@ -18,15 +18,49 @@ package org.apache.jackrabbit.oak.spi.security.authentication;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.jackrabbit.api.security.authentication.token.TokenCredentials;
 import org.apache.jackrabbit.oak.stats.DefaultStatisticsProvider;
+import org.apache.jackrabbit.oak.stats.MeterStats;
 import org.apache.jackrabbit.oak.stats.StatisticsProvider;
+import org.apache.jackrabbit.oak.stats.StatsOptions;
+import org.apache.jackrabbit.oak.stats.TimerStats;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
+import javax.jcr.SimpleCredentials;
+import javax.security.auth.login.LoginException;
+
 public class LoginModuleStatsTest {
+
+    private final MeterStats meter = mock(MeterStats.class);
+    private final TimerStats timer = mock(TimerStats.class);
+    private StatisticsProvider sp;
+
+    @Before
+    public void before() {
+        sp = mock(StatisticsProvider.class);
+        when(sp.getMeter(anyString(), any(StatsOptions.class))).thenReturn(meter);
+        when(sp.getTimer(anyString(), any(StatsOptions.class))).thenReturn(timer);
+    }
+
+    @After
+    public void after() {
+        clearInvocations(meter, timer, sp);
+    }
 
     @Test
     public void testLoginError() {
@@ -39,4 +73,30 @@ public class LoginModuleStatsTest {
         assertNotNull(s.getLoginErrorsHistory());
     }
 
+    @Test
+    public void testConstructor() {
+        LoginModuleStats s = new LoginModuleStats(sp);
+        verify(sp, times(5)).getMeter(anyString(), any(StatsOptions.class));
+        verify(sp, times(1)).getTimer(anyString(), any(StatsOptions.class));
+    }
+
+    @Test
+    public void testLoginFailed() {
+        LoginException e = new LoginException();
+        LoginModuleStats s = new LoginModuleStats(sp);
+        s.loginFailed(e, null);
+        s.loginFailed(e, new SimpleCredentials("id", new char[0]));
+        s.loginFailed(e, new TokenCredentials("token"));
+        verify(meter, times(3)).mark();
+        verify(meter, never()).mark(any(Long.class));
+    }
+
+    @Test
+    public void testPrincipalsCollected() {
+        LoginModuleStats s = new LoginModuleStats(sp);
+        s.principalsCollected(25, 4);
+        verify(meter, times(1)).mark(4);
+        verify(meter, never()).mark();
+        verify(timer, times(1)).update(25, TimeUnit.NANOSECONDS);
+    }
 }

@@ -18,9 +18,11 @@ package org.apache.jackrabbit.oak.security.user;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.concurrent.TimeUnit;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import org.apache.jackrabbit.api.security.user.Authorizable;
@@ -29,6 +31,7 @@ import org.apache.jackrabbit.api.security.user.User;
 import org.apache.jackrabbit.commons.iterator.RangeIteratorAdapter;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
+import org.apache.jackrabbit.oak.security.user.monitor.UserMonitor;
 import org.apache.jackrabbit.oak.spi.security.principal.EveryonePrincipal;
 import org.apache.jackrabbit.oak.spi.security.user.AuthorizableType;
 import org.apache.jackrabbit.oak.spi.security.user.UserConstants;
@@ -82,13 +85,13 @@ abstract class AuthorizableImpl implements Authorizable, UserConstants {
     @NotNull
     @Override
     public Iterator<Group> declaredMemberOf() throws RepositoryException {
-        return getMembership(false);
+        return memberOfMonitored(false);
     }
 
     @NotNull
     @Override
     public Iterator<Group> memberOf() throws RepositoryException {
-        return getMembership(true);
+        return memberOfMonitored(true);
     }
 
     @Override
@@ -216,6 +219,11 @@ abstract class AuthorizableImpl implements Authorizable, UserConstants {
         return userManager.getMembershipProvider();
     }
 
+    @NotNull
+    UserMonitor getMonitor() {
+        return userManager.getMonitor();
+    }
+
     /**
      * Returns {@code true} if this authorizable represents the 'everyone' group.
      *
@@ -247,6 +255,14 @@ abstract class AuthorizableImpl implements Authorizable, UserConstants {
             properties = new AuthorizablePropertiesImpl(this, userManager.getPartialValueFactory());
         }
         return properties;
+    }
+
+    @NotNull
+    private Iterator<Group> memberOfMonitored(boolean includeInherited) throws RepositoryException {
+        Stopwatch watch = Stopwatch.createStarted();
+        Iterator<Group> groups = getMembership(includeInherited);
+        getMonitor().doneMemberOf(watch.elapsed(TimeUnit.NANOSECONDS), !includeInherited);
+        return groups;
     }
 
     /**

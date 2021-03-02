@@ -34,9 +34,13 @@ import org.apache.jackrabbit.oak.namepath.impl.LocalNameMapper;
 import org.apache.jackrabbit.oak.namepath.impl.NamePathMapperImpl;
 import org.apache.jackrabbit.oak.plugins.tree.TreeUtil;
 import org.apache.jackrabbit.oak.plugins.value.jcr.PartialValueFactory;
+import org.apache.jackrabbit.oak.security.user.monitor.UserMonitor;
+import org.apache.jackrabbit.oak.security.user.monitor.UserMonitorImpl;
 import org.apache.jackrabbit.oak.spi.security.principal.PrincipalImpl;
+import org.apache.jackrabbit.oak.spi.security.user.UserConfiguration;
 import org.apache.jackrabbit.oak.spi.security.user.UserConstants;
 import org.apache.jackrabbit.oak.spi.security.user.util.PasswordUtil;
+import org.apache.jackrabbit.oak.stats.StatisticsProvider;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -54,6 +58,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
@@ -400,5 +405,17 @@ public class UserManagerImplTest extends AbstractSecurityTest {
     public void testCreateGroupWithExistingPrincipal() throws Exception {
         User u = getTestUser();
         userMgr.createGroup(u.getPrincipal());
+    }
+
+    @Test
+    public void testGetMonitor() {
+        assertSame(UserMonitor.NOOP, userMgr.getMonitor());
+
+        // initialize monitor as done in 'SecurityProviderRegistration'
+        UserConfiguration uc = getConfig(UserConfiguration.class);
+        uc.getMonitors(StatisticsProvider.NOOP);
+        UserManager umgr = uc.getUserManager(root, getNamePathMapper());
+        assertTrue(umgr instanceof UserManagerImpl);
+        assertTrue(((UserManagerImpl) umgr).getMonitor() instanceof UserMonitorImpl);
     }
 }

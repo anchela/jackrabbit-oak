@@ -887,10 +887,10 @@ public class AbstractLoginModuleTest {
     }
 
     @Test
-    public void testNullLoginModuleMonitor() {
+    public void testLoginModuleMonitorMissingCallback() {
         LoginModuleStats stats = newLoginModuleStats();
         AbstractLoginModule lm = initLoginModule((CallbackHandler) null);
-        assertNull(lm.getLoginModuleMonitor());
+        assertSame(LoginModuleStats.NOOP, lm.getLoginModuleMonitor());
         lm.onError();
         assertEquals(0, stats.getLoginErrors());
     }
@@ -900,7 +900,7 @@ public class AbstractLoginModuleTest {
         LoginModuleStats stats = newLoginModuleStats();
         AbstractLoginModule lm = initLoginModule(new ThrowingCallbackHandler(true));
 
-        assertNull(lm.getLoginModuleMonitor());
+        assertSame(LoginModuleStats.NOOP, lm.getLoginModuleMonitor());
         lm.onError();
         assertEquals(0, stats.getLoginErrors());
     }
@@ -940,7 +940,7 @@ public class AbstractLoginModuleTest {
         }
 
         @Override
-        protected LoginModuleMonitor getLoginModuleMonitor() {
+        protected @NotNull LoginModuleMonitor getLoginModuleMonitor() {
             if (mon != null) {
                 return mon;
             } else {
