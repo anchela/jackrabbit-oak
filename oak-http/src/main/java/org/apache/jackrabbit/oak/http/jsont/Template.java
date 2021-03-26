@@ -114,10 +114,7 @@ public class Template {
                                   @NotNull JsonGenerator generator) {
         String relPath = transformation.getValue(STRING);
         PropertyState p = tree.getProperty(relPath);
-        if (p != null) {
-            render(p, transformation.getName(), generator);
-        }
-
+        render(p, transformation.getName(), generator);
     }
 
     private static void render(@Nullable PropertyState property,
