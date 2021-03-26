@@ -29,6 +29,7 @@ import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
+import org.jetbrains.annotations.NotNull;
 
 import static org.apache.jackrabbit.oak.api.Type.BINARIES;
 import static org.apache.jackrabbit.oak.api.Type.BOOLEANS;
@@ -41,18 +42,48 @@ public class Template {
 
     private final Tree templateTree;
 
-    public Template(Tree template) {
+    public Template(@NotNull Tree template) {
         this.templateTree = template;
     }
 
-    public boolean matches(Tree tree) {
+    /**
+     * Verfiy if the given {@code Tree} matches the condition defined in the 'match' property of this template.
+     * E.g.
+     * <pre>
+     *     match: "sling:resourceType == 'component/image'"
+     * </pre>
+     * will return {@code true}, if the given tree contains a property _sling:resourceType_ with the value _component/image_,
+     * and false if no such property exists or if it has a different value.
+     *
+     * @param tree The target tree
+     * @return true if this template matches the given {@code Tree}.
+     */
+    public boolean matches(@NotNull Tree tree) {
         PropertyState p = templateTree.getProperty("match");
         if (p == null) {
             return false;
         }
         String matchExpression = p.getValue(Type.STRING);
-        // TODO
-        return false;
+        int i = matchExpression.indexOf("==");
+        if (i > 0) {
+            String matchName = matchExpression.substring(0, i).trim();
+            PropertyState matchProperty = tree.getProperty(matchName);
+            return matchProperty != null && matchesProperty(matchExpression, i+2, matchProperty);
+        } else {
+            // malformatted match-expression. TODO: is format of template guaranteed to be valid?
+            return false;
+        }
+    }
+
+    private static boolean matchesProperty(@NotNull String matchExpression, int startIndex, @NotNull PropertyState matchProperty) {
+        if (matchProperty.isArray()) {
+            return false;
+        }
+        String v = matchExpression.substring(startIndex).trim();
+        if (v.startsWith("'")) {
+            v = v.substring(1, v.length()-1);
+        }
+        return v.equals(matchProperty.getValue(Type.STRING));
     }
 
     public void transform(Tree tree, JsonGenerator generator) {
