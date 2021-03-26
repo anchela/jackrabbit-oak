@@ -16,9 +16,26 @@
  */
 package org.apache.jackrabbit.oak.http.jsont;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+
+import javax.jcr.PropertyType;
+
+import com.fasterxml.jackson.core.JsonGenerator;
+
+import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
+
+import static org.apache.jackrabbit.oak.api.Type.BINARIES;
+import static org.apache.jackrabbit.oak.api.Type.BOOLEANS;
+import static org.apache.jackrabbit.oak.api.Type.DECIMALS;
+import static org.apache.jackrabbit.oak.api.Type.DOUBLES;
+import static org.apache.jackrabbit.oak.api.Type.LONGS;
+import static org.apache.jackrabbit.oak.api.Type.STRINGS;
 
 public class Template {
 
@@ -34,7 +51,65 @@ public class Template {
             return false;
         }
         String matchExpression = p.getValue(Type.STRING);
-        // TODO: implement
+        // TODO
         return false;
+    }
+
+    public void transform(Tree tree, JsonGenerator generator) {
+        // TODO
+    }
+
+    private static void render(PropertyState property, JsonGenerator generator)
+            throws IOException {
+        if (property.isArray()) {
+            generator.writeStartArray();
+            renderValue(property, generator);
+            generator.writeEndArray();
+        } else {
+            renderValue(property, generator);
+        }
+    }
+
+    private static void renderValue(PropertyState property, JsonGenerator generator)
+            throws IOException {
+        // TODO: Type info?
+        int type = property.getType().tag();
+        if (type == PropertyType.BOOLEAN) {
+            for (boolean value : property.getValue(BOOLEANS)) {
+                generator.writeBoolean(value);
+            }
+        } else if (type == PropertyType.DECIMAL) {
+            for (BigDecimal value : property.getValue(DECIMALS)) {
+                generator.writeNumber(value);
+            }
+        } else if (type == PropertyType.DOUBLE) {
+            for (double value : property.getValue(DOUBLES)) {
+                generator.writeNumber(value);
+            }
+        } else if (type == PropertyType.LONG) {
+            for (long value : property.getValue(LONGS)) {
+                generator.writeNumber(value);
+            }
+        } else if (type == PropertyType.BINARY) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            for (Blob value : property.getValue(BINARIES)) {
+                InputStream stream = value.getNewStream();
+                try {
+                    byte[] b = new byte[1024];
+                    int n = stream.read(b);
+                    while (n != -1) {
+                        buffer.write(b, 0, n);
+                        n = stream.read(b);
+                    }
+                } finally {
+                    stream.close();
+                }
+                generator.writeBinary(buffer.toByteArray());
+            }
+        } else {
+            for (String value : property.getValue(STRINGS)) {
+                generator.writeString(value);
+            }
+        }
     }
 }

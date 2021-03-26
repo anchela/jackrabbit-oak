@@ -39,6 +39,7 @@ import org.apache.jackrabbit.oak.api.ContentSession;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.commons.PathUtils;
+import org.apache.jackrabbit.oak.http.jsont.JsonTemplateRepresentation;
 import org.apache.jackrabbit.util.Base64;
 import org.apache.tika.mime.MediaType;
 
@@ -53,7 +54,8 @@ public class OakServlet extends HttpServlet {
     private static final Representation[] REPRESENTATIONS = {
         new HtmlRepresentation(),
         new TextRepresentation(),
-        new JsonRepresentation(JSON, new JsonFactory()),
+        new JsonTemplateRepresentation(JSON, new JsonFactory()),
+        // new JsonRepresentation(JSON, new JsonFactory()),
         new JsonRepresentation(SMILE, new SmileFactory()),
         new PostRepresentation() };
 
