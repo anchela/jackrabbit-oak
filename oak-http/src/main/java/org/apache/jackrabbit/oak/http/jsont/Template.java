@@ -123,7 +123,7 @@ public class Template {
         try {
             generator.writeFieldName(propertyName);
             if (property == null) {
-                generator.writeNullField(propertyName);
+                generator.writeNull();
             } else if (property.isArray()) {
                 generator.writeStartArray();
                 renderValue(property, generator);
