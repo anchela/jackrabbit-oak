@@ -26,6 +26,7 @@ import javax.jcr.PropertyType;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 
+import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
@@ -38,6 +39,7 @@ import static org.apache.jackrabbit.oak.api.Type.BOOLEANS;
 import static org.apache.jackrabbit.oak.api.Type.DECIMALS;
 import static org.apache.jackrabbit.oak.api.Type.DOUBLES;
 import static org.apache.jackrabbit.oak.api.Type.LONGS;
+import static org.apache.jackrabbit.oak.api.Type.STRING;
 import static org.apache.jackrabbit.oak.api.Type.STRINGS;
 
 public class Template {
@@ -95,10 +97,27 @@ public class Template {
             if (names != null) {
                 names.getValue(STRINGS).forEach(name -> render(tree.getProperty(name), name, generator));
             }
+            for (PropertyState p : templateTree.getChild("template").getProperties()) {
+                if (JcrConstants.JCR_PRIMARYTYPE.equals(p.getName())) {
+                    continue;
+                }
+                transform(tree, p, generator);
+            }
             generator.writeEndObject();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static void transform(@NotNull Tree tree,
+                                  @NotNull PropertyState transformation,
+                                  @NotNull JsonGenerator generator) {
+        String relPath = transformation.getValue(STRING);
+        PropertyState p = tree.getProperty(relPath);
+        if (p != null) {
+            render(p, transformation.getName(), generator);
+        }
+
     }
 
     private static void render(@Nullable PropertyState property,
