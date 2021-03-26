@@ -68,6 +68,7 @@ class ServerCommand implements Command {
         OptionSpec<Boolean> mmap = parser.accepts("mmap", "TarMK memory mapping").withOptionalArg().ofType(Boolean.class).defaultsTo("64".equals(System.getProperty("sun.arch.data.model")));
 
         // mongo specific options:
+        OptionSpec<String> mongodbURI = parser.accepts("uri", "MongoDB URI").withRequiredArg().defaultsTo("mongodb://localhost:27017");
         OptionSpec<String> host = parser.accepts("host", "MongoDB host").withRequiredArg().defaultsTo("127.0.0.1");
         OptionSpec<Integer> port = parser.accepts("port", "MongoDB port").withRequiredArg().ofType(Integer.class).defaultsTo(27017);
         OptionSpec<String> dbName = parser.accepts("db", "MongoDB database").withRequiredArg();
@@ -105,12 +106,7 @@ class ServerCommand implements Command {
             }
         } else if (fix.startsWith(OakFixture.OAK_MONGO)) {
             cIds = clusterIds.values(options);
-            String db = dbName.value(options);
-            if (db == null) {
-                throw new IllegalArgumentException("Required argument db missing");
-            }
-            String mongodbURI = "mongodb://" + host.value(options) + ":" + port.value(options) + "/" + db;
-            oakFixture = new OakFixture.MongoFixture("Oak-MongoNS", mongodbURI, false, cacheSize * MB, false, null, 0) {
+            oakFixture = new OakFixture.MongoFixture("Oak-MongoNS", mongodbURI.value(options), false, cacheSize * MB, false, null, 0) {
                 @Override
                 public DocumentNodeStoreBuilder<?> getBuilder(int clusterId) {
                     DocumentNodeStoreBuilder<?> builder = super.getBuilder(clusterId);
@@ -125,7 +121,7 @@ class ServerCommand implements Command {
             if (baseFile == null) {
                 throw new IllegalArgumentException("Required argument base missing.");
             }
-            oakFixture = OakFixture.getVanillaSegmentTar(baseFile, 256, cacheSize, mmap.value(options));
+            oakFixture = OakFixture.getVanillaSegmentTar(baseFile, 256, cacheSize, mmap.value(options), !readWrite.value(options));
         } else if (fix.equals(OakFixture.OAK_RDB)) {
             oakFixture = OakFixture.getRDB(OakFixture.OAK_RDB, rdbjdbcuri.value(options), rdbjdbcuser.value(options),
                     rdbjdbcpasswd.value(options), rdbjdbctableprefix.value(options), false, cacheSize, -1);

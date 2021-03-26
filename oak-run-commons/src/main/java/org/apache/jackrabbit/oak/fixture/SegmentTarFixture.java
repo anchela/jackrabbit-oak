@@ -77,12 +77,13 @@ public class SegmentTarFixture extends OakFixture {
     static class SegmentTarFixtureBuilder {
         private final String name;
         private final File base;
-        
+
         private int maxFileSize;
         private int segmentCacheSize;
         private boolean memoryMapping;
         private boolean useBlobStore;
         private int dsCacheSize;
+        private boolean readOnly;
 
         private String awsBucketName;
         private String awsRootPath;
@@ -141,6 +142,11 @@ public class SegmentTarFixture extends OakFixture {
             this.azureRootPath = azureRootPath;
             return this;
         }
+
+        public SegmentTarFixtureBuilder withReadOnly(boolean readOnly) {
+            this.readOnly = readOnly;
+            return this;
+        }
         
         public SegmentTarFixture build() {
             return new SegmentTarFixture(this);
@@ -153,6 +159,7 @@ public class SegmentTarFixture extends OakFixture {
     private final boolean memoryMapping;
     private final boolean useBlobStore;
     private final int dsCacheSize;
+    private final boolean readOnly;
     
     private final boolean withColdStandby;
     private final int syncInterval;
@@ -187,12 +194,18 @@ public class SegmentTarFixture extends OakFixture {
     public SegmentTarFixture(SegmentTarFixtureBuilder builder, boolean withColdStandby, int syncInterval) {
         this(builder, withColdStandby, syncInterval, false, false, false);
     }
-    
+
     public SegmentTarFixture(SegmentTarFixtureBuilder builder, boolean withColdStandby, int syncInterval,
-            boolean shareBlobStore, boolean oneShotRun, boolean secure) {
+                             boolean shareBlobStore, boolean oneShotRun, boolean secure) {
+        this(builder, withColdStandby, syncInterval, shareBlobStore, oneShotRun, secure, false);
+    }
+
+    public SegmentTarFixture(SegmentTarFixtureBuilder builder, boolean withColdStandby, int syncInterval,
+            boolean shareBlobStore, boolean oneShotRun, boolean secure, boolean readOnly) {
         super(builder.name);
         this.base = builder.base;
         this.parentPath = new File(base, unique);
+        this.readOnly = readOnly;
 
         this.maxFileSize = builder.maxFileSize;
         this.segmentCacheSize = builder.segmentCacheSize;
@@ -296,8 +309,12 @@ public class SegmentTarFixture extends OakFixture {
             fileStoreBuilder.withBlobStore(blobStore);
         }
         
-        FileStore fs = fileStoreBuilder.build();
-        Oak oak = newOak(SegmentNodeStoreBuilders.builder(fs).build());
+        Oak oak;
+        if (readOnly) {
+            oak = newOak(SegmentNodeStoreBuilders.builder(fileStoreBuilder.buildReadOnly()).build());
+        } else {
+            oak = newOak(SegmentNodeStoreBuilders.builder(fileStoreBuilder.build()).build());
+        }
         if (blobStore != null) {
             oak.getWhiteboard()
                 .register(BlobAccessProvider.class, (BlobAccessProvider) blobStore, Collections.EMPTY_MAP);

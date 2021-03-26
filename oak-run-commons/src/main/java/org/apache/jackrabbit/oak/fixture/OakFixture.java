@@ -330,13 +330,22 @@ public abstract class OakFixture {
     }
 
     public static OakFixture getSegmentTar(final String name, final File base, final int maxFileSizeMB,
+                                           final int cacheSizeMB, final boolean memoryMapping, final boolean useBlobStore, final int dsCacheInMB,
+                                           final boolean withColdStandby, final int syncInterval, final boolean shareBlobStore, final boolean secure,
+                                           final boolean oneShotRun) {
+        return getSegmentTar(name, base, maxFileSizeMB, cacheSizeMB,
+                memoryMapping, useBlobStore, dsCacheInMB, withColdStandby,
+                syncInterval, shareBlobStore, secure, oneShotRun);
+    }
+
+    public static OakFixture getSegmentTar(final String name, final File base, final int maxFileSizeMB,
             final int cacheSizeMB, final boolean memoryMapping, final boolean useBlobStore, final int dsCacheInMB,
             final boolean withColdStandby, final int syncInterval, final boolean shareBlobStore, final boolean secure,
-            final boolean oneShotRun) {
+            final boolean oneShotRun, boolean readOnly) {
 
         SegmentTarFixtureBuilder builder = SegmentTarFixtureBuilder.segmentTarFixtureBuilder(name, base);
         builder.withMaxFileSize(maxFileSizeMB).withSegmentCacheSize(cacheSizeMB).withMemoryMapping(memoryMapping)
-                .withBlobStore(useBlobStore).withDSCacheSize(dsCacheInMB);
+                .withBlobStore(useBlobStore).withDSCacheSize(dsCacheInMB).withReadOnly(readOnly);
 
         return new SegmentTarFixture(builder, withColdStandby, syncInterval, shareBlobStore, secure, oneShotRun);
     }
@@ -346,6 +355,13 @@ public abstract class OakFixture {
 
         return getSegmentTar(OakFixture.OAK_SEGMENT_TAR, base, maxFileSizeMB, cacheSizeMB, memoryMapping, false, 0,
                 false, -1, false, false, false);
+    }
+
+    public static OakFixture getVanillaSegmentTar(final File base, final int maxFileSizeMB,
+            final int cacheSizeMB, final boolean memoryMapping, boolean readOnly) {
+
+        return getSegmentTar(OakFixture.OAK_SEGMENT_TAR, base, maxFileSizeMB, cacheSizeMB, memoryMapping, false, 0,
+                false, -1, false, false, false, readOnly);
     }
 
     public static OakFixture getSegmentTarWithDataStore(final File base,
