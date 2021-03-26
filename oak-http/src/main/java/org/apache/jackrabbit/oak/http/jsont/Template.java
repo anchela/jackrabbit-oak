@@ -105,6 +105,7 @@ public class Template {
                                @NotNull String propertyName,
                                @NotNull JsonGenerator generator) {
         try {
+            generator.writeFieldName(propertyName);
             if (property == null) {
                 generator.writeNullField(propertyName);
             } else if (property.isArray()) {
