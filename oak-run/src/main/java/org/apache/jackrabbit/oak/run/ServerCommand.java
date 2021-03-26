@@ -31,6 +31,7 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.fixture.OakFixture;
+import org.apache.jackrabbit.oak.plugins.document.DocumentNodeStoreBuilder;
 import org.apache.jackrabbit.oak.run.commons.Command;
 
 class ServerCommand implements Command {
@@ -60,6 +61,7 @@ class ServerCommand implements Command {
         OptionParser parser = new OptionParser();
 
         OptionSpec<Integer> cache = parser.accepts("cache", "cache size (MB)").withRequiredArg().ofType(Integer.class).defaultsTo(100);
+        OptionSpec<Boolean> readWrite = parser.accepts("read-write", "Run server in read-write mode").withOptionalArg().ofType(Boolean.class).defaultsTo(false);
 
         // tar/h2 specific option
         OptionSpec<File> base = parser.accepts("base", "Base directory").withRequiredArg().ofType(File.class);
@@ -107,16 +109,17 @@ class ServerCommand implements Command {
             if (db == null) {
                 throw new IllegalArgumentException("Required argument db missing");
             }
-            if (OakFixture.OAK_MONGO_NS.equals(fix)) {
-                oakFixture = OakFixture.getMongoNS(
-                        host.value(options), port.value(options),
-                        db, false,
-                        cacheSize * MB);
-            } else {
-                oakFixture = OakFixture.getMongo(
-                        host.value(options), port.value(options),
-                        db, false, cacheSize * MB);
-            }
+            String mongodbURI = "mongodb://" + host.value(options) + ":" + port.value(options) + "/" + db;
+            oakFixture = new OakFixture.MongoFixture("Oak-MongoNS", mongodbURI, false, cacheSize * MB, false, null, 0) {
+                @Override
+                public DocumentNodeStoreBuilder<?> getBuilder(int clusterId) {
+                    DocumentNodeStoreBuilder<?> builder = super.getBuilder(clusterId);
+                    if (!Boolean.TRUE.equals(readWrite.value(options))) {
+                        builder.setReadOnlyMode();
+                    }
+                    return builder;
+                }
+            };
         } else if (fix.equals(OakFixture.OAK_SEGMENT_TAR)) {
             File baseFile = base.value(options);
             if (baseFile == null) {
