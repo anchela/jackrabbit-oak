@@ -19,6 +19,7 @@ package org.apache.jackrabbit.oak.http.jsont;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 
 import javax.jcr.PropertyType;
@@ -30,6 +31,7 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.jackrabbit.oak.api.Type.BINARIES;
 import static org.apache.jackrabbit.oak.api.Type.BOOLEANS;
@@ -87,17 +89,33 @@ public class Template {
     }
 
     public void transform(@NotNull Tree tree, @NotNull JsonGenerator generator) {
-        // TODO
+        try {
+            generator.writeStartObject();
+            PropertyState names = templateTree.getProperty("template");
+            if (names != null) {
+                names.getValue(STRINGS).forEach(name -> render(tree.getProperty(name), name, generator));
+            }
+            generator.writeEndObject();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
-    private static void render(@NotNull PropertyState property, @NotNull JsonGenerator generator)
-            throws IOException {
-        if (property.isArray()) {
-            generator.writeStartArray();
-            renderValue(property, generator);
-            generator.writeEndArray();
-        } else {
-            renderValue(property, generator);
+    private static void render(@Nullable PropertyState property,
+                               @NotNull String propertyName,
+                               @NotNull JsonGenerator generator) {
+        try {
+            if (property == null) {
+                generator.writeNullField(propertyName);
+            } else if (property.isArray()) {
+                generator.writeStartArray();
+                renderValue(property, generator);
+                generator.writeEndArray();
+            } else {
+                renderValue(property, generator);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
