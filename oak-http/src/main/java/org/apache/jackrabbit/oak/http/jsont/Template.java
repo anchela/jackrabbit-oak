@@ -86,11 +86,11 @@ public class Template {
         return v.equals(matchProperty.getValue(Type.STRING));
     }
 
-    public void transform(Tree tree, JsonGenerator generator) {
+    public void transform(@NotNull Tree tree, @NotNull JsonGenerator generator) {
         // TODO
     }
 
-    private static void render(PropertyState property, JsonGenerator generator)
+    private static void render(@NotNull PropertyState property, @NotNull JsonGenerator generator)
             throws IOException {
         if (property.isArray()) {
             generator.writeStartArray();
@@ -101,7 +101,7 @@ public class Template {
         }
     }
 
-    private static void renderValue(PropertyState property, JsonGenerator generator)
+    private static void renderValue(@NotNull PropertyState property, @NotNull JsonGenerator generator)
             throws IOException {
         // TODO: Type info?
         int type = property.getType().tag();
@@ -124,16 +124,13 @@ public class Template {
         } else if (type == PropertyType.BINARY) {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             for (Blob value : property.getValue(BINARIES)) {
-                InputStream stream = value.getNewStream();
-                try {
+                try (InputStream stream = value.getNewStream()) {
                     byte[] b = new byte[1024];
                     int n = stream.read(b);
                     while (n != -1) {
                         buffer.write(b, 0, n);
                         n = stream.read(b);
                     }
-                } finally {
-                    stream.close();
                 }
                 generator.writeBinary(buffer.toByteArray());
             }

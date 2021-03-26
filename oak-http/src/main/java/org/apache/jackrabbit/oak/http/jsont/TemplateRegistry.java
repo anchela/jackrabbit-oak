@@ -16,23 +16,23 @@
  */
 package org.apache.jackrabbit.oak.http.jsont;
 
+import org.apache.jackrabbit.oak.api.Tree;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import org.apache.jackrabbit.oak.api.Tree;
 
 public class TemplateRegistry {
 
     private final List<Template> templates = new ArrayList<>();
 
-    public TemplateRegistry(Tree templates) {
+    public TemplateRegistry(@NotNull Tree templates) {
         templates.getChildren().forEach(tree -> this.templates.add(new Template(tree)));
     }
 
-    public Optional<Template> findMatch(Tree tree) {
-        // TODO
-        return Optional.empty();
+    @NotNull
+    public Optional<Template> findMatch(@NotNull Tree tree) {
+        return templates.stream().filter(template -> template.matches(tree)).findFirst();
     }
-
 }

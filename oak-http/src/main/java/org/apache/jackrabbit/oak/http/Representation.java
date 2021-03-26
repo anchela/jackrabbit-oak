@@ -23,15 +23,17 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.tika.mime.MediaType;
+import org.jetbrains.annotations.NotNull;
 
 public interface Representation {
 
+    @NotNull
     MediaType getType();
 
-    void render(Tree tree, HttpServletResponse response)
+    void render(@NotNull Tree tree, @NotNull HttpServletResponse response)
             throws IOException;
 
-    void render(PropertyState property, HttpServletResponse response)
+    void render(@NotNull PropertyState property, @NotNull HttpServletResponse response)
             throws IOException;
 
 }

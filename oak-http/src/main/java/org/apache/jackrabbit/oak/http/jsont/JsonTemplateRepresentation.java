@@ -27,6 +27,7 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.http.Representation;
 import org.apache.tika.mime.MediaType;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Renders JSON using templates.
@@ -37,18 +38,18 @@ public class JsonTemplateRepresentation implements Representation {
 
     private final JsonFactory factory;
 
-    public JsonTemplateRepresentation(MediaType type, JsonFactory factory) {
+    public JsonTemplateRepresentation(@NotNull MediaType type, @NotNull JsonFactory factory) {
         this.type = type;
         this.factory = factory;
     }
 
     @Override
-    public MediaType getType() {
+    public @NotNull MediaType getType() {
         return type;
     }
 
     @Override
-    public void render(Tree tree, HttpServletResponse response)
+    public void render(@NotNull Tree tree, @NotNull HttpServletResponse response)
             throws IOException {
         TemplateRegistry registry = createTemplateRegistry(tree);
         JsonGenerator generator = startResponse(response);
@@ -57,18 +58,20 @@ public class JsonTemplateRepresentation implements Representation {
     }
 
     @Override
-    public void render(PropertyState property, HttpServletResponse response)
+    public void render(@NotNull PropertyState property, @NotNull HttpServletResponse response)
             throws IOException {
         throw new UnsupportedOperationException();
     }
 
-    protected JsonGenerator startResponse(HttpServletResponse response)
+    @NotNull
+    protected JsonGenerator startResponse(@NotNull HttpServletResponse response)
             throws IOException {
         response.setContentType(type.toString());
         return factory.createGenerator(response.getOutputStream());
     }
 
-    private static TemplateRegistry createTemplateRegistry(Tree tree) {
+    @NotNull
+    private static TemplateRegistry createTemplateRegistry(@NotNull Tree tree) {
         Tree t = tree;
         while (!t.isRoot()) {
             t = t.getParent();
@@ -76,10 +79,9 @@ public class JsonTemplateRepresentation implements Representation {
         return new TemplateRegistry(t.getChild("templates"));
     }
 
-    private static void render(Tree tree,
-                               JsonGenerator generator,
-                               TemplateRegistry registry)
-            throws IOException {
+    private static void render(@NotNull Tree tree,
+                               @NotNull JsonGenerator generator,
+                               @NotNull TemplateRegistry registry) {
         registry.findMatch(tree).ifPresent(template -> template.transform(tree, generator));
     }
 
